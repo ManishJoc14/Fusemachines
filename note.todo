@@ -1,0 +1,21 @@
+1. create requirements files
+
+2. create .env
+
+3. create .gitignore
+
+4. create app/core/config.py export settings
+
+5. create app/main.py
+
+6. create app/db/base.py and session.py
+
+7. create app/models/customer.py (SQLAlchemy Model)
+
+8. create app/schemas/customer.py (Pydantic Model)
+
+9. create app/services/customer.py (Business logic)
+
+10. create app/api/v1/customer.py (API Routes)
+
+

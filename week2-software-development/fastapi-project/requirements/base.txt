@@ -1,0 +1,14 @@
+# Core FastAPI framework
+fastapi
+
+# ASGI server (runs FastAPI)
+uvicorn
+
+# Database ORM (SQL toolkit)
+sqlalchemy
+
+# Async PostgreSQL driver
+asyncpg
+
+# Pydantic settings management (env config)
+pydantic-settings

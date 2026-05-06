@@ -1,0 +1,11 @@
+# Testing framework
+pytest
+
+# Async HTTP client for testing APIs
+httpx
+
+# Code formatting (clean style)
+black
+
+# Linting (find errors early)
+ruff
