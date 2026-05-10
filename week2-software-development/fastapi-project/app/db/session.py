@@ -9,10 +9,10 @@ from app.core.config import settings
 # Database Engine
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.ENVIRONMENT == 'development',
-    pool_pre_ping=True,   # checks dead connections
-    pool_size=10,         # number of persistent connections
-    max_overflow=20,      # extra connections if load increases
+    echo=settings.ENVIRONMENT == "development",
+    pool_pre_ping=True,  # checks dead connections
+    pool_size=10,  # number of persistent connections
+    max_overflow=20,  # extra connections if load increases
 )
 
 # Session Factory
@@ -22,6 +22,7 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False,
     autoflush=False,
 )
+
 
 # Dependency for FastAPI routes
 async def get_db():
@@ -33,7 +34,7 @@ async def get_db():
     2. Yield session to route
     3. Close session after request ends
     """
-    
+
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -57,5 +58,3 @@ async def get_db():
 # Query executes
 #       ↓
 # Session closes safely
-
-

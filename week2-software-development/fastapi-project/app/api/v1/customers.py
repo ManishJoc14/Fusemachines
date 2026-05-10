@@ -109,7 +109,7 @@ async def get_customer_orders(customer_id: int, db: AsyncSession = Depends(get_d
 
 
 @router.get("/{customer_id}/payments", response_model=list[PaymentResponse])
-async def get_customer_payments(customer_id: int, db:AsyncSession = Depends(get_db)):
+async def get_customer_payments(customer_id: int, db: AsyncSession = Depends(get_db)):
     """
     Get all payments for a customer.
     """
@@ -117,4 +117,3 @@ async def get_customer_payments(customer_id: int, db:AsyncSession = Depends(get_
     service = CustomerService(db)
 
     return await service.get_customer_payments(customer_id)
-

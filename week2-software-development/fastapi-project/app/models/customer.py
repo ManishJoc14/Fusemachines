@@ -6,7 +6,7 @@ from app.db.base import Base
 class Customer(Base):
     """
     Customer table model.
-    
+
     Represents customers in the database.
     """
 

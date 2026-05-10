@@ -72,9 +72,11 @@ class CustomerResponse(CustomerBase):
     class Config:
         from_attributes = True
 
+
 # Outpur for DELETE
 class CustomerDeleteResponse(BaseModel):
     """
     Response schema for customer deletion.
     """
+
     message: str

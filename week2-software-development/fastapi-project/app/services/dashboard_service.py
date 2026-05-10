@@ -11,7 +11,6 @@ from app.models.payment import Payment
 from app.models.orderdetail import OrderDetail
 from app.models.productline import ProductLine
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +25,7 @@ class DashboardService:
         """
 
         self.db = db
-    
+
     async def count_customers(self):
         """
         Count all customers.
@@ -35,9 +34,7 @@ class DashboardService:
         logger.info("Counting all customers")
 
         try:
-            result = await self.db.execute(
-                select(func.count()).select_from(Customer)
-            )
+            result = await self.db.execute(select(func.count()).select_from(Customer))
 
             count = result.scalar() or 0
 
@@ -58,9 +55,7 @@ class DashboardService:
         logger.info("Counting all orders")
 
         try:
-            result = await self.db.execute(
-                select(func.count()).select_from(Order)
-            )
+            result = await self.db.execute(select(func.count()).select_from(Order))
 
             count = result.scalar() or 0
 
@@ -72,7 +67,7 @@ class DashboardService:
             logger.error(f"Order count query failed: {str(e)}")
 
             return 0
-    
+
     async def count_products(self):
         """
         Count all product.
@@ -81,9 +76,7 @@ class DashboardService:
         logger.info("Counting all product")
 
         try:
-            result = await self.db.execute(
-                select(func.count()).select_from(Product)
-            )
+            result = await self.db.execute(select(func.count()).select_from(Product))
 
             count = result.scalar() or 0
 
@@ -95,7 +88,7 @@ class DashboardService:
             logger.error(f"Product count query failed: {str(e)}")
 
             return 0
-   
+
     async def count_employees(self):
         """
         Count all employee.
@@ -104,9 +97,7 @@ class DashboardService:
         logger.info("Counting all employee")
 
         try:
-            result = await self.db.execute(
-                select(func.count()).select_from(Employee)
-            )
+            result = await self.db.execute(select(func.count()).select_from(Employee))
 
             count = result.scalar() or 0
 
@@ -118,7 +109,7 @@ class DashboardService:
             logger.error(f"Employee count query failed: {str(e)}")
 
             return 0
-   
+
     async def count_offices(self):
         """
         Count all office.
@@ -127,9 +118,7 @@ class DashboardService:
         logger.info("Counting all office")
 
         try:
-            result = await self.db.execute(
-                select(func.count()).select_from(Office)
-            )
+            result = await self.db.execute(select(func.count()).select_from(Office))
 
             count = result.scalar() or 0
 
@@ -141,7 +130,7 @@ class DashboardService:
             logger.error(f"Office count query failed: {str(e)}")
 
             return 0
-   
+
     async def count_payments(self):
         """
         Count all payment.
@@ -150,9 +139,7 @@ class DashboardService:
         logger.info("Counting all payment")
 
         try:
-            result = await self.db.execute(
-                select(func.count()).select_from(Payment)
-            )
+            result = await self.db.execute(select(func.count()).select_from(Payment))
 
             count = result.scalar() or 0
 
@@ -164,7 +151,7 @@ class DashboardService:
             logger.error(f"Payment count query failed: {str(e)}")
 
             return 0
-   
+
     async def count_order_details(self):
         """
         Count all order_detail.
@@ -187,7 +174,7 @@ class DashboardService:
             logger.error(f"OrderDetail count query failed: {str(e)}")
 
             return 0
-   
+
     async def count_product_lines(self):
         """
         Count all product_line.
@@ -210,4 +197,3 @@ class DashboardService:
             logger.error(f"ProductLine count query failed: {str(e)}")
 
             return 0
-         

@@ -13,8 +13,8 @@ class OrderBase(BaseModel):
     shippedDate: Optional[date] = None
     status: str
     comments: Optional[str] = None
-    
-    
+
+
 class OrderResponse(OrderBase):
     """
     Response schema returned to client.
@@ -24,4 +24,4 @@ class OrderResponse(OrderBase):
     customerNumber: int
 
     class Config:
-        from_attributes = True 
+        from_attributes = True

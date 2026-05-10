@@ -22,14 +22,14 @@ class CustomFormatter(logging.Formatter):
 
 
 def setup_logging():
-        """
-        Configures global logging for the entire application.
-        """
+    """
+    Configures global logging for the entire application.
+    """
 
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(CustomFormatter())
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(CustomFormatter())
 
-        logging.basicConfig(
-            level=logging.INFO,
-            handlers=[handler],
-        )
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[handler],
+    )

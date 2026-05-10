@@ -13,4 +13,5 @@ class Base(DeclarativeBase):
     - Create tables automatically
     - Manage metadata
     """
+
     pass
