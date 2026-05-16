@@ -19,7 +19,6 @@ async def get_count(method_name: str):
     """
 
     async with AsyncSessionLocal() as db:
-
         service = DashboardService(db)
 
         method = getattr(service, method_name)
