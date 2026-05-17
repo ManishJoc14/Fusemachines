@@ -39,3 +39,14 @@ class TextToSQLAgent:
         )
 
         return await chain.run(question, max_retries)
+
+    async def run_yield(self, question: str, max_retries: int | None = None):
+        chain = PromptChain(
+            hf_client=self.hf_client,
+            prompt_builder=self.prompt_builder,
+            schema_inspector=self.schema_inspector,
+            sql_executor=self.sql_executor,
+            sql_validator=self.sql_validator,
+        )
+        async for update in chain.run_yield(question, max_retries):
+            yield update

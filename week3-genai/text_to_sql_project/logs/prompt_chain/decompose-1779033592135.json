@@ -1,0 +1,20 @@
+{
+  "question": "Orders placed after 2005-01-01",
+  "steps": [
+    {
+      "step": "decompose",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a PostgreSQL text-to-SQL planner.\nReturn JSON only. Do not wrap the response in markdown.\n\nThe JSON object must match this shape:\n{\n  \"intent\": \"string\",\n  \"tables\": [\"string\"],\n  \"columns\": [\"string\"],\n  \"filters\": [\"string\"],\n  \"joins\": [\"string\"],\n  \"aggregation\": [\"string\"],\n  \"group_by\": [\"string\"],\n  \"order_by\": [\"string\"],\n  \"limit\": 0,\n  \"notes\": [\"string\"]\n}\n\nRules:\n- Use only tables and columns that exist in the provided schema.\n- Prefer the smallest valid set of tables and columns.\n- If the question asks for a count, total, average, minimum, maximum, or grouped summary, reflect that in aggregation and group_by.\n- If the question is ambiguous, make the safest reasonable choice and explain the assumption in notes.\n"
+        },
+        {
+          "role": "user",
+          "content": "Schema:\nDatabase schema:\n- customers: customerNumber (integer), customerName (character varying), contactLastName (character varying), contactFirstName (character varying), phone (character varying), addressLine1 (character varying), addressLine2 (character varying), city (character varying), state (character varying), postalCode (character varying), country (character varying), salesRepEmployeeNumber (integer), creditLimit (numeric)\n  foreign keys: salesRepEmployeeNumber -> employees.employeeNumber\n- employees: employeeNumber (integer), lastName (character varying), firstName (character varying), extension (character varying), email (character varying), officeCode (character varying), reportsTo (integer), jobTitle (character varying)\n  foreign keys: officeCode -> offices.officeCode; reportsTo -> employees.employeeNumber\n- offices: officeCode (character varying), city (character varying), phone (character varying), addressLine1 (character varying), addressLine2 (character varying), state (character varying), country (character varying), postalCode (character varying), territory (character varying)\n- orderdetails: orderNumber (integer), productCode (character varying), quantityOrdered (integer), priceEach (numeric), orderLineNumber (smallint)\n  foreign keys: orderNumber -> orders.orderNumber; productCode -> products.productCode\n- orders: orderNumber (integer), orderDate (date), requiredDate (date), shippedDate (date), status (character varying), comments (text), customerNumber (integer)\n  foreign keys: customerNumber -> customers.customerNumber\n- payments: customerNumber (integer), checkNumber (character varying), paymentDate (date), amount (numeric)\n  foreign keys: customerNumber -> customers.customerNumber\n- productlines: productLine (character varying), textDescription (character varying), htmlDescription (text), image (bytea)\n- products: productCode (character varying), productName (character varying), productLine (character varying), productScale (character varying), productVendor (character varying), productDescription (text), quantityInStock (integer), buyPrice (numeric), MSRP (numeric)\n  foreign keys: productLine -> productlines.productLine\n\nQuestion: Orders placed after 2005-01-01\n\nReturn only the JSON object described above."
+        }
+      ],
+      "response": "{\n  \"intent\": \"retrieve\",\n  \"tables\": [\"orders\"],\n  \"columns\": [\"orderNumber\", \"orderDate\", \"customerNumber\"],\n  \"filters\": [\"orderDate > '2005-01-01'\"],\n  \"joins\": [],\n  \"aggregation\": \"\",\n  \"group_by\": \"\",\n  \"order_by\": \"orderDate\",\n  \"limit\": 0,\n  \"notes\": [\"Assumed the user wants to see minimal order details (order number, date, customer) for orders after 2005-01-01.\"]\n}",
+      "error": "1 validation error for QueryPlan\norder_by\n  Input should be a valid list [type=list_type, input_value='orderDate', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/list_type"
+    }
+  ]
+}

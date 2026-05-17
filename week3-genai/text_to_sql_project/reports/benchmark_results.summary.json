@@ -1,0 +1,6 @@
+{
+  "total_queries": 39,
+  "sql_exact_match_rate": 0.10256410256410256,
+  "execution_success_rate": 0.8461538461538461,
+  "average_attempts": 1.7179487179487178
+}

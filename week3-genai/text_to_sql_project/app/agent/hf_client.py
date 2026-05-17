@@ -7,7 +7,6 @@ prompt string for HF models.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 from typing import Any, Dict, List, Optional
@@ -66,35 +65,13 @@ class HFClient:
         payload = {
             "model": str(self.model),
             "messages": messages,
+            "max_tokens": 1024,
         }
-        # Only add temperature if explicitly provided or non-zero, 
-        # but to match user snippet, let's keep it minimal.
         temp = temperature if temperature is not None else self.temperature
-        if temp is not None and temp > 0:
+        if temp is not None:
             payload["temperature"] = temp
         
         return payload
-
-    def _do_request(self, messages: List[Dict[str, str]], temperature: Optional[float]) -> str:
-        url = "https://router.huggingface.co/v1/chat/completions"
-        headers = self._get_headers()
-        payload = self._get_payload(messages, temperature)
-        
-        logger.debug(f"HF Request Payload: {json.dumps(payload)}")
-        
-        try:
-            with httpx.Client(timeout=self.timeout) as client:
-                response = client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                return response.text
-        except httpx.HTTPStatusError as exc:
-            try:
-                body = exc.response.text
-            except Exception:
-                body = "(unable to read response body)"
-            raise HFClientError(f"HuggingFace HTTP {exc.response.status_code}: {body}") from exc
-        except httpx.RequestError as exc:
-            raise HFClientError(f"HuggingFace request failed: {exc}") from exc
 
     def _parse_response(self, raw: str) -> str:
         try:
@@ -150,10 +127,31 @@ class HFClient:
     def chat(self, messages: List[Dict[str, str]], temperature: Optional[float] = None) -> str:
         if not self.api_key:
             raise HFClientError("HUGGINGFACE_API_KEY is not configured")
-        raw = self._do_request(messages, temperature)
-        return self._parse_response(raw)
+        
+        url = "https://router.huggingface.co/v1/chat/completions"
+        headers = self._get_headers()
+        payload = self._get_payload(messages, temperature)
+        
+        logger.debug(f"HF Request Payload: {json.dumps(payload)}")
+        
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+                return self._parse_response(response.text)
+        except httpx.HTTPStatusError as exc:
+            try:
+                body = exc.response.text
+            except Exception:
+                body = "(unable to read response body)"
+            raise HFClientError(f"HuggingFace HTTP {exc.response.status_code}: {body}") from exc
+        except httpx.RequestError as exc:
+            raise HFClientError(f"HuggingFace request failed: {exc}") from exc
 
     async def achat(self, messages: List[Dict[str, str]], temperature: Optional[float] = None) -> str:
+        if not self.api_key:
+            raise HFClientError("HUGGINGFACE_API_KEY is not configured")
+
         url = "https://router.huggingface.co/v1/chat/completions"
         headers = self._get_headers()
         payload = self._get_payload(messages, temperature)
@@ -173,4 +171,3 @@ class HFClient:
             raise HFClientError(f"HuggingFace HTTP {exc.response.status_code}: {body}") from exc
         except httpx.RequestError as exc:
             raise HFClientError(f"HuggingFace request failed: {exc}") from exc
-

@@ -1,157 +1,148 @@
+#!/usr/bin/env python3
+"""Run benchmark against local Text-to-SQL agent HTTP API.
+
+Usage:
+  python -m scripts.run_benchmark --dataset benchmark/benchmark_dataset.json --out reports/benchmark_results.csv
+
+The script posts each question to POST /agent/sql on the provided base URL and records the response.
+It computes simple metrics (SQL exact-match rate, execution success rate, retry stats) and writes CSV + summary JSON.
+"""
 from __future__ import annotations
 
-import asyncio
+import argparse
 import csv
 import json
-import sys
-import os
 from pathlib import Path
 from typing import Any
 
-# Add project root to sys.path to allow imports when running from project root or scripts directory
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from app.agent.engine import TextToSQLAgent
-from app.core.logging import logger
-from app.core.config import settings
-from app.db.executor import SQLExecutor
+import httpx
 
 
-ROOT = Path(__file__).resolve().parents[1]
-print(f"Using DATABASE_URL: {settings.DATABASE_URL}")
-DATASET_PATH = ROOT / "benchmark" / "benchmark_dataset.json"
-OUTPUT_DIR = ROOT / "evaluation"
-JSON_OUTPUT_PATH = OUTPUT_DIR / "benchmark_results.json"
-CSV_OUTPUT_PATH = OUTPUT_DIR / "benchmark_results.csv"
+def normalize_sql(s: str) -> str:
+    if s is None:
+        return ""
+    return " ".join(s.strip().lower().replace('\n', ' ').split())
 
 
-class BenchmarkRunner:
-    def __init__(
-        self, agent: TextToSQLAgent | None = None, executor: SQLExecutor | None = None
-    ) -> None:
-        self.agent = agent or TextToSQLAgent()
-        self.executor = executor or SQLExecutor()
+def run(dataset_path: Path, out_path: Path, base_url: str, timeout: float = 30.0) -> int:
+    with dataset_path.open("r", encoding="utf-8") as fh:
+        data = json.load(fh)
 
-    async def _execute_expected_sql(self, sql: str) -> Any:
-        rows = await self.executor.run_sql(sql)
-        if len(rows) == 1 and len(rows[0]) == 1:
-            return next(iter(rows[0].values()))
-        return rows
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    csv_file = out_path
 
-    async def evaluate(self) -> dict[str, Any]:
-        if not DATASET_PATH.exists():
-            logger.error("Dataset not found at %s", DATASET_PATH)
-            return {"error": "Dataset not found"}
+    rows: list[dict[str, Any]] = []
 
-        dataset = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
-        records: list[dict[str, Any]] = []
+    client = httpx.Client(base_url=base_url, timeout=timeout)
 
-        for item in dataset:
-            question = item["question"]
-            logger.info("Benchmark question: %s", question)
+    for idx, entry in enumerate(data, start=1):
+        question = entry.get("question")
+        gold_sql = entry.get("sql") or ""
 
-            agent_response = await self.agent.run(question)
-
-            expected_result: Any = None
-            expected_error: str | None = None
-            try:
-                expected_result = await self._execute_expected_sql(item["sql"])
-            except Exception as exc:
-                expected_error = str(exc)
-
-            generated_result = _canonicalize(agent_response.result)
-            expected_result = _canonicalize(expected_result)
-
-            result_match = (
-                expected_error is None
-                and agent_response.status == "success"
-                and generated_result == expected_result
-            )
-
-            records.append(
+        print(f"[{idx}/{len(data)}] Query: {question}")
+        try:
+            resp = client.post("/agent/sql", json={"question": question})
+            resp.raise_for_status()
+            jr = resp.json()
+        except Exception as exc:
+            print(f"  Request failed: {exc}")
+            rows.append(
                 {
+                    "qid": idx,
                     "question": question,
-                    "expected_sql": item["sql"],
-                    "generated_sql": agent_response.sql,
-                    "status": agent_response.status,
-                    "attempts": agent_response.attempts,
-                    "execution_ms": agent_response.execution_ms,
-                    "result_match": result_match,
-                    "error": agent_response.error,
-                    "expected_error": expected_error,
-                    "summary": agent_response.summary,
+                    "gold_sql": gold_sql,
+                    "gen_sql": "",
+                    "sql_match": 0,
+                    "status": "request_failed",
+                    "error": str(exc),
                 }
             )
+            continue
 
-        total = len(records)
-        success_count = sum(1 for record in records if record["status"] == "success")
-        result_match_count = sum(1 for record in records if record["result_match"])
-        retry_count = sum(
-            1 for record in records if record["attempts"] and record["attempts"] > 1
+        gen_sql = jr.get("sql") or ""
+        status = jr.get("status")
+        attempts = jr.get("attempts") or 0
+        result = jr.get("result")
+        result_count = None
+        if isinstance(result, list):
+            result_count = len(result)
+        elif result is None:
+            result_count = 0
+        else:
+            result_count = 1
+
+        sql_match = 1 if normalize_sql(gen_sql) == normalize_sql(gold_sql) else 0
+
+        rows.append(
+            {
+                "qid": idx,
+                "question": question,
+                "gold_sql": gold_sql,
+                "gen_sql": gen_sql,
+                "sql_match": sql_match,
+                "status": status,
+                "attempts": attempts,
+                "result_count": result_count,
+                "error": jr.get("error"),
+            }
         )
-        latencies = [
-            record["execution_ms"]
-            for record in records
-            if record["execution_ms"] is not None
-        ]
 
-        report = {
-            "metrics": {
-                "total_questions": total,
-                "success_rate": success_count / total if total else 0,
-                "result_match_rate": result_match_count / total if total else 0,
-                "retry_rate": retry_count / total if total else 0,
-                "average_latency_ms": sum(latencies) / len(latencies)
-                if latencies
-                else 0,
-            },
-            "results": records,
-        }
+    # write CSV
+    keys = [
+        "qid",
+        "question",
+        "gold_sql",
+        "gen_sql",
+        "sql_match",
+        "status",
+        "attempts",
+        "result_count",
+        "error",
+    ]
+    with csv_file.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=keys)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow(r)
 
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        JSON_OUTPUT_PATH.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+    # summary metrics
+    total = len(rows)
+    sql_matches = sum(r.get("sql_match", 0) for r in rows)
+    exec_success = sum(1 for r in rows if r.get("status") == "success")
+    avg_attempts = sum(r.get("attempts", 0) for r in rows) / total if total else 0
 
-        with CSV_OUTPUT_PATH.open("w", newline="", encoding="utf-8") as handle:
-            fieldnames = [
-                "question",
-                "expected_sql",
-                "generated_sql",
-                "status",
-                "attempts",
-                "execution_ms",
-                "result_match",
-                "error",
-                "expected_error",
-                "summary",
-            ]
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(records)
+    summary = {
+        "total_queries": total,
+        "sql_exact_match_rate": sql_matches / total if total else 0,
+        "execution_success_rate": exec_success / total if total else 0,
+        "average_attempts": avg_attempts,
+    }
 
-        return report
+    summary_path = out_path.with_suffix(".summary.json")
+    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    print("\nBenchmark complete")
+    print(json.dumps(summary, indent=2))
+    return 0
 
 
-def _canonicalize(value: Any) -> Any:
-    if isinstance(value, list):
-        if value and all(isinstance(item, dict) for item in value):
-            return sorted(
-                json.dumps(item, sort_keys=True, ensure_ascii=False) for item in value
-            )
-        return value
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser()
+    p.add_argument("--dataset", required=True, help="Path to benchmark dataset JSON file")
+    p.add_argument("--out", required=True, help="CSV output path for results")
+    p.add_argument("--base-url", default="http://127.0.0.1:8000", help="Base URL of FastAPI service")
+    p.add_argument("--timeout", type=float, default=100.0, help="HTTP timeout seconds")
+    args = p.parse_args(argv)
 
-    if isinstance(value, dict):
-        return json.dumps(value, sort_keys=True, ensure_ascii=False)
+    dataset_path = Path(args.dataset)
+    out_path = Path(args.out)
 
-    return value
+    if not dataset_path.exists():
+        print(f"Dataset not found: {dataset_path}")
+        return 2
+
+    return run(dataset_path, out_path, args.base_url, args.timeout)
 
 
 if __name__ == "__main__":
-    result = asyncio.run(BenchmarkRunner().evaluate())
-    if "metrics" in result:
-        print(json.dumps(result["metrics"], indent=2))
-    else:
-        print(result)
+    raise SystemExit(main())

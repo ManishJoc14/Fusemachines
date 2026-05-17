@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     AGENT_MAX_RETRIES: int = 3
 
     ALLOWED_ORIGINS: List[str] = Field(
-        default_factory=lambda: ["http://localhost:3000"]
+        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:8501/"]
     )
     
     model_config = SettingsConfigDict(

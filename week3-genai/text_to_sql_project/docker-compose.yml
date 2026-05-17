@@ -21,6 +21,20 @@ services:
     volumes:
       - .:/app
 
+  streamlit:
+    build: .
+    container_name: text_to_sql_streamlit
+    volumes:
+      - ./:/app
+    working_dir: /app
+    env_file:
+      - .env
+    ports:
+      - "8501:8501"
+    command: streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+    depends_on:
+      - app
+
   db:
     image: postgres:15
 

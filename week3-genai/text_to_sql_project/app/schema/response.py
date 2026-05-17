@@ -15,3 +15,4 @@ class QueryResponse(BaseModel):
     decomposition: Optional[QueryPlan] = None
     attempts: int = 0
     execution_ms: Optional[float] = None
+    chain_steps: list[dict[str, Any]] = Field(default_factory=list)

@@ -27,6 +27,14 @@ Copy `.env.example` to `.env` and set:
 uvicorn app.main:app --reload
 ```
 
+## Run the Streamlit UI
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Use the sidebar to point the UI at your FastAPI base URL, then enter a question and click `Run chain`.
+
 `POST /agent/sql`
 
 ```json

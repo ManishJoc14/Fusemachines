@@ -1,0 +1,84 @@
+qid,question,gold_sql,gen_sql,sql_match,status,attempts,result_count,error
+1,List all products,SELECT * FROM products,SELECT * FROM products,1,success,1,110,
+2,Get all customers,SELECT * FROM customers,"SELECT ""customerNumber"", ""customerName"", ""contactLastName"", ""contactFirstName"", phone, ""addressLine1"", ""addressLine2"", city, state, ""postalCode"", country, ""salesRepEmployeeNumber"", ""creditLimit"" FROM customers",0,success,2,122,
+3,Show all orders,SELECT * FROM orders,"SELECT ""orderNumber"", ""orderDate"", ""requiredDate"", ""shippedDate"", ""status"", ""comments"", ""customerNumber"" FROM orders",0,success,2,326,
+4,List all employees,SELECT * FROM employees,"SELECT ""employeeNumber"", ""lastName"", ""firstName"", ""extension"", ""email"", ""officeCode"", ""reportsTo"", ""jobTitle"" FROM employees",0,success,2,23,
+5,Get all offices,SELECT * FROM offices,"SELECT ""officeCode"", ""city"", ""phone"", ""addressLine1"", ""addressLine2"", ""state"", ""country"", ""postalCode"", ""territory"" FROM offices",0,success,2,7,
+6,Show all product lines,SELECT * FROM productlines,"SELECT ""productLine"" FROM productlines",0,success,2,7,
+7,List all payments,SELECT * FROM payments,"SELECT ""customerNumber"", ""checkNumber"", ""paymentDate"", amount
+FROM payments",0,success,2,273,
+8,Get product names and prices,"SELECT productName, buyPrice FROM products","SELECT ""productName"", ""MSRP"" FROM products",0,success,3,110,
+9,Get customer names and cities,"SELECT customerName, city FROM customers","SELECT ""customerName"", city FROM customers",0,success,2,122,
+10,List employee first and last names,"SELECT firstName, lastName FROM employees","SELECT ""firstName"", ""lastName"" FROM employees",0,success,2,23,
+11,Get all order dates,SELECT orderDate FROM orders,,0,failed,0,0,"Decomposition failed: 1 validation error for QueryPlan
+aggregation
+  Input should be a valid list [type=list_type, input_value='none', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/list_type"
+12,Show product vendor list,SELECT productVendor FROM products,"SELECT DISTINCT ""productVendor"" FROM products",0,success,2,13,
+13,Get all product codes,SELECT productCode FROM products,"SELECT ""productCode"" FROM products",0,success,2,110,
+14,List all countries from offices,SELECT country FROM offices,SELECT DISTINCT country FROM offices,0,success,1,5,
+15,Show all order statuses,SELECT status FROM orders,,0,failed,0,0,"Decomposition failed: 1 validation error for QueryPlan
+order_by
+  Input should be a valid list [type=list_type, input_value='status', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/list_type"
+16,Get all payment amounts,SELECT amount FROM payments,SELECT amount FROM payments,1,success,1,273,
+17,List all job titles,SELECT jobTitle FROM employees,"SELECT DISTINCT ""jobTitle"" FROM employees",0,success,2,7,
+18,Get customer phone numbers,SELECT phone FROM customers,SELECT phone FROM customers,1,success,1,122,
+19,Show product MSRP values,SELECT MSRP FROM products,"SELECT ""MSRP"" FROM products",0,success,2,110,
+20,List order numbers,SELECT orderNumber FROM orders,"SELECT ""orderNumber"" FROM orders",0,success,2,326,
+21,Get orders with customer names,"SELECT o.orderNumber, c.customerName FROM orders o JOIN customers c ON o.customerNumber = c.customerNumber","SELECT o.""orderNumber"", c.""customerName""
+FROM orders o
+JOIN customers c ON o.""customerNumber"" = c.""customerNumber""",0,success,2,326,
+22,Get employees with office city,"SELECT e.firstName, e.lastName, o.city FROM employees e JOIN offices o ON e.officeCode = o.officeCode","SELECT e.""employeeNumber"", e.""firstName"", e.""lastName"", o.""city""
+FROM employees e
+INNER JOIN offices o ON e.""officeCode"" = o.""officeCode""",0,success,3,23,
+23,Get payments with customer names,"SELECT p.checkNumber, p.amount, c.customerName FROM payments p JOIN customers c ON p.customerNumber = c.customerNumber","SELECT p.""customerNumber"", p.""checkNumber"", p.""paymentDate"", p.amount, c.""customerName""
+FROM payments p
+INNER JOIN customers c ON p.""customerNumber"" = c.""customerNumber""",0,success,2,273,
+24,Get order details with product names,"SELECT od.orderNumber, p.productName, od.quantityOrdered FROM orderdetails od JOIN products p ON od.productCode = p.productCode","SELECT od.""orderNumber"", od.""productCode"", od.""quantityOrdered"", od.""priceEach"", od.""orderLineNumber"", p.""productName""
+FROM orderdetails od
+JOIN products p ON od.""productCode"" = p.""productCode""",0,success,2,2996,
+25,Get products with product line description,"SELECT p.productName, pl.textDescription FROM products p JOIN productlines pl ON p.productLine = pl.productLine","SELECT p.""productName"", p.""productLine"", pl.""textDescription""
+FROM products p
+JOIN productlines pl ON p.""productLine"" = pl.""productLine""",0,success,2,110,
+26,Get customers with sales rep names,"SELECT c.customerName, e.firstName, e.lastName FROM customers c JOIN employees e ON c.salesRepEmployeeNumber = e.employeeNumber",,0,failed,0,0,"Decomposition failed: 3 validation errors for QueryPlan
+aggregation
+  Input should be a valid list [type=list_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.13/v/list_type
+group_by
+  Input should be a valid list [type=list_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.13/v/list_type
+order_by
+  Input should be a valid list [type=list_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.13/v/list_type"
+27,Get orders with customer city,"SELECT o.orderNumber, c.city FROM orders o JOIN customers c ON o.customerNumber = c.customerNumber","SELECT o.""orderNumber"", c.city
+FROM orders o
+JOIN customers c ON o.""customerNumber"" = c.""customerNumber""",0,success,2,326,
+28,Get employees and their manager,"SELECT e.firstName, e.lastName, m.firstName, m.lastName FROM employees e LEFT JOIN employees m ON e.reportsTo = m.employeeNumber","SELECT e1.employeeNumber, e1.firstName, e1.lastName, e2.firstName AS managerFirstName, e2.lastName AS managerLastName
+FROM employees e1
+LEFT JOIN employees e2 ON e1.reportsTo = e2.employeeNumber",0,failed,4,0,"(sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: column e1.reportsto does not exist
+HINT:  Perhaps you meant to reference the column ""e1.reportsTo"".
+[SQL: SELECT e1.employeeNumber, e1.firstName, e1.lastName, e2.firstName AS managerFirstName, e2.lastName AS managerLastName
+FROM employees e1
+LEFT JOIN employees e2 ON e1.reportsTo = e2.employeeNumber]
+(Background on this error at: https://sqlalche.me/e/20/f405)"
+29,Get payments with customer country,"SELECT p.checkNumber, p.amount, c.country FROM payments p JOIN customers c ON p.customerNumber = c.customerNumber","SELECT p.""customerNumber"", p.""checkNumber"", p.""paymentDate"", p.amount, c.country
+FROM payments p
+JOIN customers c ON p.""customerNumber"" = c.""customerNumber""",0,success,2,273,
+30,Customers from USA,SELECT * FROM customers WHERE country = 'USA',"SELECT ""customerNumber"", ""customerName"", ""contactLastName"", ""contactFirstName"", ""phone"", ""addressLine1"", ""addressLine2"", ""city"", ""state"", ""postalCode"", ""country"", ""salesRepEmployeeNumber"", ""creditLimit"" FROM customers WHERE ""country"" = 'USA'",0,success,2,36,
+31,Orders placed after 2005-01-01,"SELECT * FROM orders WHERE ""orderDate"" > '2005-01-01'",,0,failed,0,0,"Decomposition failed: 1 validation error for QueryPlan
+order_by
+  Input should be a valid list [type=list_type, input_value='orderDate', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/list_type"
+32,Products with buy price greater than 100,"SELECT * FROM products WHERE ""buyPrice"" > 100","SELECT ""productCode"", ""productName"", ""buyPrice"" FROM ""products"" WHERE ""buyPrice"" > 100",0,success,1,2,
+33,Payments greater than 5000,SELECT * FROM payments WHERE amount > 5000,"SELECT ""customerNumber"", ""checkNumber"", ""paymentDate"", amount FROM payments WHERE amount > 5000",0,success,2,253,
+34,Employees from office code 1,"SELECT * FROM employees WHERE ""officeCode"" = '1'","SELECT ""employeeNumber"", ""lastName"", ""firstName"", ""extension"", ""email"", ""officeCode"", ""reportsTo"", ""jobTitle""
+FROM employees
+WHERE ""officeCode"" = '1'",0,success,2,6,
+35,Orders with status Shipped,SELECT * FROM orders WHERE status = 'Shipped',"SELECT ""orderNumber"", ""orderDate"", ""requiredDate"", ""shippedDate"", status, comments, ""customerNumber"" FROM orders WHERE status = 'Shipped'",0,success,2,303,
+36,Customers from France,SELECT * FROM customers WHERE country = 'France',"SELECT ""customerNumber"", ""customerName"", city, country FROM customers WHERE country = 'France'",0,success,2,12,
+37,Products from specific vendor,"SELECT * FROM products WHERE ""productVendor"" = 'Classic Metal Creations'",,0,request_failed,,,timed out
+38,Payments between 2000 and 10000,SELECT * FROM payments WHERE amount BETWEEN 2000 AND 10000,"SELECT ""customerNumber"", ""checkNumber"", ""paymentDate"", ""amount""
+FROM payments
+WHERE ""amount"" BETWEEN 2000 AND 10000",0,success,2,34,
+39,Customers whose name starts with A,"SELECT * FROM customers WHERE ""customerName"" LIKE 'A%'","SELECT * FROM customers WHERE ""customerName"" LIKE 'A%'",1,success,2,16,
