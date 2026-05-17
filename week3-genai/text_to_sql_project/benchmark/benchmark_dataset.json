@@ -6,7 +6,8 @@
     "tables": ["products"],
     "columns": ["*"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Get all customers",
@@ -15,7 +16,8 @@
     "tables": ["customers"],
     "columns": ["*"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Show all orders",
@@ -24,7 +26,8 @@
     "tables": ["orders"],
     "columns": ["*"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "List all employees",
@@ -33,7 +36,8 @@
     "tables": ["employees"],
     "columns": ["*"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Get all offices",
@@ -42,7 +46,8 @@
     "tables": ["offices"],
     "columns": ["*"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Show all product lines",
@@ -51,7 +56,8 @@
     "tables": ["productlines"],
     "columns": ["*"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "List all payments",
@@ -60,61 +66,68 @@
     "tables": ["payments"],
     "columns": ["*"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Get product names and prices",
-    "sql": "SELECT \"productName\", \"buyPrice\" FROM products",
+    "sql": "SELECT productName, buyPrice FROM products",
     "intent": "retrieve product pricing information",
     "tables": ["products"],
     "columns": ["productName", "buyPrice"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Get customer names and cities",
-    "sql": "SELECT \"customerName\", city FROM customers",
+    "sql": "SELECT customerName, city FROM customers",
     "intent": "retrieve customer location information",
     "tables": ["customers"],
     "columns": ["customerName", "city"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "List employee first and last names",
-    "sql": "SELECT \"firstName\", \"lastName\" FROM employees",
+    "sql": "SELECT firstName, lastName FROM employees",
     "intent": "retrieve employee names",
     "tables": ["employees"],
     "columns": ["firstName", "lastName"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Get all order dates",
-    "sql": "SELECT \"orderDate\" FROM orders",
+    "sql": "SELECT orderDate FROM orders",
     "intent": "retrieve all order dates",
     "tables": ["orders"],
     "columns": ["orderDate"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Show product vendor list",
-    "sql": "SELECT \"productVendor\" FROM products",
+    "sql": "SELECT productVendor FROM products",
     "intent": "retrieve product vendors",
     "tables": ["products"],
     "columns": ["productVendor"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Get all product codes",
-    "sql": "SELECT \"productCode\" FROM products",
+    "sql": "SELECT productCode FROM products",
     "intent": "retrieve product identifiers",
     "tables": ["products"],
     "columns": ["productCode"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "List all countries from offices",
@@ -123,16 +136,18 @@
     "tables": ["offices"],
     "columns": ["country"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Show all order statuses",
-    "sql": "SELECT \"status\" FROM orders",
-    "intent": "retrieve order status values",
+    "sql": "SELECT status FROM orders",
+    "intent": "retrieve order statuses",
     "tables": ["orders"],
     "columns": ["status"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Get all payment amounts",
@@ -141,133 +156,138 @@
     "tables": ["payments"],
     "columns": ["amount"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "List all job titles",
-    "sql": "SELECT \"jobTitle\" FROM employees",
-    "intent": "retrieve employee job roles",
+    "sql": "SELECT jobTitle FROM employees",
+    "intent": "retrieve job titles",
     "tables": ["employees"],
     "columns": ["jobTitle"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Get customer phone numbers",
     "sql": "SELECT phone FROM customers",
-    "intent": "retrieve customer contact numbers",
+    "intent": "retrieve customer phone numbers",
     "tables": ["customers"],
     "columns": ["phone"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Show product MSRP values",
-    "sql": "SELECT \"MSRP\" FROM products",
-    "intent": "retrieve product retail prices",
+    "sql": "SELECT MSRP FROM products",
+    "intent": "retrieve product MSRP values",
     "tables": ["products"],
     "columns": ["MSRP"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "List order numbers",
-    "sql": "SELECT \"orderNumber\" FROM orders",
+    "sql": "SELECT orderNumber FROM orders",
     "intent": "retrieve order identifiers",
     "tables": ["orders"],
     "columns": ["orderNumber"],
     "filters": [],
-    "joins": []
+    "joins": [],
+    "aggregation": []
   },
   {
     "question": "Get orders with customer names",
-    "sql": "SELECT o.\"orderNumber\", c.\"customerName\" FROM orders o JOIN customers c ON o.\"customerNumber\" = c.\"customerNumber\"",
-    "intent": "retrieve orders along with customer information",
+    "sql": "SELECT o.orderNumber, c.customerName FROM orders o JOIN customers c ON o.customerNumber = c.customerNumber",
+    "intent": "retrieve orders with customer information",
     "tables": ["orders", "customers"],
     "columns": ["orderNumber", "customerName"],
     "filters": [],
-    "joins": ["orders.customerNumber = customers.customerNumber"]
+    "joins": ["orders.customerNumber = customers.customerNumber"],
+    "aggregation": []
   },
   {
     "question": "Get employees with office city",
-    "sql": "SELECT e.\"firstName\", e.\"lastName\", o.city FROM employees e JOIN offices o ON e.\"officeCode\" = o.\"officeCode\"",
-    "intent": "retrieve employees with their office location",
+    "sql": "SELECT e.firstName, e.lastName, o.city FROM employees e JOIN offices o ON e.officeCode = o.officeCode",
+    "intent": "retrieve employees with office city",
     "tables": ["employees", "offices"],
     "columns": ["firstName", "lastName", "city"],
     "filters": [],
-    "joins": ["employees.officeCode = offices.officeCode"]
+    "joins": ["employees.officeCode = offices.officeCode"],
+    "aggregation": []
   },
   {
     "question": "Get payments with customer names",
-    "sql": "SELECT p.\"checkNumber\", p.amount, c.\"customerName\" FROM payments p JOIN customers c ON p.\"customerNumber\" = c.\"customerNumber\"",
-    "intent": "retrieve payment details with customer information",
+    "sql": "SELECT p.checkNumber, p.amount, c.customerName FROM payments p JOIN customers c ON p.customerNumber = c.customerNumber",
+    "intent": "retrieve payments with customer names",
     "tables": ["payments", "customers"],
     "columns": ["checkNumber", "amount", "customerName"],
     "filters": [],
-    "joins": ["payments.customerNumber = customers.customerNumber"]
+    "joins": ["payments.customerNumber = customers.customerNumber"],
+    "aggregation": []
   },
   {
     "question": "Get order details with product names",
-    "sql": "SELECT od.\"orderNumber\", p.\"productName\", od.\"quantityOrdered\" FROM orderdetails od JOIN products p ON od.\"productCode\" = p.\"productCode\"",
-    "intent": "retrieve order line items with product information",
+    "sql": "SELECT od.orderNumber, p.productName, od.quantityOrdered FROM orderdetails od JOIN products p ON od.productCode = p.productCode",
+    "intent": "retrieve order details with product names",
     "tables": ["orderdetails", "products"],
     "columns": ["orderNumber", "productName", "quantityOrdered"],
     "filters": [],
-    "joins": ["orderdetails.productCode = products.productCode"]
+    "joins": ["orderdetails.productCode = products.productCode"],
+    "aggregation": []
   },
   {
     "question": "Get products with product line description",
-    "sql": "SELECT p.\"productName\", pl.\"textDescription\" FROM products p JOIN productlines pl ON p.\"productLine\" = pl.\"productLine\"",
-    "intent": "retrieve product details with product line information",
+    "sql": "SELECT p.productName, pl.textDescription FROM products p JOIN productlines pl ON p.productLine = pl.productLine",
+    "intent": "retrieve products with product line info",
     "tables": ["products", "productlines"],
     "columns": ["productName", "textDescription"],
     "filters": [],
-    "joins": ["products.productLine = productlines.productLine"]
+    "joins": ["products.productLine = productlines.productLine"],
+    "aggregation": []
   },
   {
     "question": "Get customers with sales rep names",
-    "sql": "SELECT c.\"customerName\", e.\"firstName\", e.\"lastName\" FROM customers c JOIN employees e ON c.\"salesRepEmployeeNumber\" = e.\"employeeNumber\"",
-    "intent": "retrieve customers with their assigned sales representatives",
+    "sql": "SELECT c.customerName, e.firstName, e.lastName FROM customers c JOIN employees e ON c.salesRepEmployeeNumber = e.employeeNumber",
+    "intent": "retrieve customers with sales representatives",
     "tables": ["customers", "employees"],
     "columns": ["customerName", "firstName", "lastName"],
     "filters": [],
-    "joins": ["customers.salesRepEmployeeNumber = employees.employeeNumber"]
+    "joins": ["customers.salesRepEmployeeNumber = employees.employeeNumber"],
+    "aggregation": []
   },
   {
     "question": "Get orders with customer city",
-    "sql": "SELECT o.\"orderNumber\", c.city FROM orders o JOIN customers c ON o.\"customerNumber\" = c.\"customerNumber\"",
-    "intent": "retrieve orders with customer location information",
+    "sql": "SELECT o.orderNumber, c.city FROM orders o JOIN customers c ON o.customerNumber = c.customerNumber",
+    "intent": "retrieve orders with customer city",
     "tables": ["orders", "customers"],
     "columns": ["orderNumber", "city"],
     "filters": [],
-    "joins": ["orders.customerNumber = customers.customerNumber"]
+    "joins": ["orders.customerNumber = customers.customerNumber"],
+    "aggregation": []
   },
   {
     "question": "Get employees and their manager",
-    "sql": "SELECT e.\"firstName\" AS employeeFirstName, e.\"lastName\" AS employeeLastName, m.\"firstName\" AS managerFirstName, m.\"lastName\" AS managerLastName FROM employees e LEFT JOIN employees m ON e.\"reportsTo\" = m.\"employeeNumber\"",
-    "intent": "retrieve employee hierarchy with manager relationships",
+    "sql": "SELECT e.firstName, e.lastName, m.firstName, m.lastName FROM employees e LEFT JOIN employees m ON e.reportsTo = m.employeeNumber",
+    "intent": "retrieve employee-manager hierarchy",
     "tables": ["employees"],
     "columns": ["firstName", "lastName"],
     "filters": [],
-    "joins": ["employees.reportsTo = employees.employeeNumber"]
-  },
-  {
-    "question": "Get orderdetails with product vendor",
-    "sql": "SELECT od.\"orderNumber\", p.\"productVendor\" FROM orderdetails od JOIN products p ON od.\"productCode\" = p.\"productCode\"",
-    "intent": "retrieve order line items with product vendor information",
-    "tables": ["orderdetails", "products"],
-    "columns": ["orderNumber", "productVendor"],
-    "filters": [],
-    "joins": ["orderdetails.productCode = products.productCode"]
+    "joins": ["employees.reportsTo = employees.employeeNumber"],
+    "aggregation": []
   },
   {
     "question": "Get payments with customer country",
-    "sql": "SELECT p.\"checkNumber\", p.amount, c.country FROM payments p JOIN customers c ON p.\"customerNumber\" = c.\"customerNumber\"",
-    "intent": "retrieve payments with customer geographic information",
+    "sql": "SELECT p.checkNumber, p.amount, c.country FROM payments p JOIN customers c ON p.customerNumber = c.customerNumber",
+    "intent": "retrieve payments with customer country",
     "tables": ["payments", "customers"],
     "columns": ["checkNumber", "amount", "country"],
     "filters": [],
-    "joins": ["payments.customerNumber = customers.customerNumber"]
+    "joins": ["payments.customerNumber = customers.customerNumber"],
+    "aggregation": []
   },
   {
     "question": "Customers from USA",
