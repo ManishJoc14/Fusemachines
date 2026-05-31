@@ -1,0 +1,41 @@
+Summary:
+
+Decision Tree:
+- Splits data using Gini or Entropy
+- Recursively asks questions to split to reduce entropy
+- Stops when nodes are pure or limit is reached
+
+
+Ensemble Learning:
+- Combines multiple models
+- Classification: majority vote
+- Regression: average prediction
+
+
+Bagging:
+- Bootstrap sampling (with replacement)
+- ~63% data is used, ~37% OOB samples for validation
+- Models are trained in parallel 
+- Example: Random Forest (uses random feature subsets)
+
+
+Boosting:
+- Models are trained sequentially 
+- Each model fixes previous errors
+- Uses learning rate to control gradient flow
+- Example: XGBoost
+
+
+K-Fold Cross Validation:
+- Data divided into K equal parts (folds)
+- Model trained on K-1 folds
+- Tested on remaining 1 fold
+- Repeat K times
+- Final score = average of all K folds
+
+
+SMOTE (Synthetic Minority Over-sampling Technique):
+- Used to handle imbalanced datasets
+- Creates synthetic (fake but realistic) samples for minority class
+
+
