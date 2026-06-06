@@ -29,5 +29,8 @@ postgres_data/
 .DS_Store
 Thumbs.db
 
-# Models
+# ML models
 *.pkl
+*.h5
+*.pt
+*.joblib
