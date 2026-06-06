@@ -29,7 +29,9 @@ def summarize_result(result: Any, sql: str | None = None) -> str:
     # SQL-based detection
     if sql:
         sql_lower = sql.lower()
-        if any(func in sql_lower for func in ("count(", "sum(", "avg(", "min(", "max(")):
+        if any(
+            func in sql_lower for func in ("count(", "sum(", "avg(", "min(", "max(")
+        ):
             # If result is a scalar or single-row single-col, describe as aggregation
             if isinstance(result, list) and len(result) == 1 and len(result[0]) == 1:
                 value = next(iter(result[0].values()))

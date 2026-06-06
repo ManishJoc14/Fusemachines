@@ -7,6 +7,7 @@ Usage:
 The script posts each question to POST /agent/sql on the provided base URL and records the response.
 It computes simple metrics (SQL exact-match rate, execution success rate, retry stats) and writes CSV + summary JSON.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -21,10 +22,12 @@ import httpx
 def normalize_sql(s: str) -> str:
     if s is None:
         return ""
-    return " ".join(s.strip().lower().replace('\n', ' ').split())
+    return " ".join(s.strip().lower().replace("\n", " ").split())
 
 
-def run(dataset_path: Path, out_path: Path, base_url: str, timeout: float = 30.0) -> int:
+def run(
+    dataset_path: Path, out_path: Path, base_url: str, timeout: float = 30.0
+) -> int:
     with dataset_path.open("r", encoding="utf-8") as fh:
         data = json.load(fh)
 
@@ -128,9 +131,15 @@ def run(dataset_path: Path, out_path: Path, base_url: str, timeout: float = 30.0
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--dataset", required=True, help="Path to benchmark dataset JSON file")
+    p.add_argument(
+        "--dataset", required=True, help="Path to benchmark dataset JSON file"
+    )
     p.add_argument("--out", required=True, help="CSV output path for results")
-    p.add_argument("--base-url", default="http://127.0.0.1:8000", help="Base URL of FastAPI service")
+    p.add_argument(
+        "--base-url",
+        default="http://127.0.0.1:8000",
+        help="Base URL of FastAPI service",
+    )
     p.add_argument("--timeout", type=float, default=100.0, help="HTTP timeout seconds")
     args = p.parse_args(argv)
 

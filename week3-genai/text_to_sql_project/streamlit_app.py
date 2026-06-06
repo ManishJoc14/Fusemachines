@@ -7,7 +7,6 @@ import httpx
 import pandas as pd
 import streamlit as st
 
-
 st.set_page_config(
     page_title="SQL Agent Explorer",
     page_icon="",
@@ -62,7 +61,9 @@ st.markdown(
 
 def stream_question(base_url: str, question: str):
     endpoint = f"{base_url.rstrip('/')}/agent/sql/stream"
-    with httpx.stream("POST", endpoint, json={"question": question}, timeout=180.0) as response:
+    with httpx.stream(
+        "POST", endpoint, json={"question": question}, timeout=180.0
+    ) as response:
         for line in response.iter_lines():
             if line:
                 yield json.loads(line)
@@ -128,7 +129,11 @@ def render_step_card(step: dict[str, Any]) -> None:
         st.markdown(f"<div class='step-header'>{header}</div>", unsafe_allow_html=True)
 
         st.caption(f"Status: {status.replace('_', ' ').title()}")
-        stage_text = latest_event.get("message") or latest_event.get("stage") or latest_event.get("detail")
+        stage_text = (
+            latest_event.get("message")
+            or latest_event.get("stage")
+            or latest_event.get("detail")
+        )
         if stage_text:
             st.write(stage_text)
 
@@ -136,7 +141,10 @@ def render_step_card(step: dict[str, Any]) -> None:
 
         with left:
             st.caption("Input")
-            input_payload = next((ev.get("messages") for ev in events if ev.get("messages") is not None), None)
+            input_payload = next(
+                (ev.get("messages") for ev in events if ev.get("messages") is not None),
+                None,
+            )
             if input_payload is not None:
                 render_json_value(input_payload)
             elif latest_event.get("input") is not None:
@@ -153,7 +161,11 @@ def render_step_card(step: dict[str, Any]) -> None:
             elif latest_event.get("repaired_sql") is not None:
                 st.code(latest_event["repaired_sql"], language="sql")
             elif latest_event.get("result_preview") is not None:
-                st.dataframe(pd.DataFrame(latest_event["result_preview"]), width="stretch", hide_index=True)
+                st.dataframe(
+                    pd.DataFrame(latest_event["result_preview"]),
+                    width="stretch",
+                    hide_index=True,
+                )
             elif latest_event.get("result") is not None:
                 render_result(latest_event["result"])
             elif latest_event.get("result_count") is not None:
@@ -191,12 +203,14 @@ def render_json_value(value: Any) -> None:
 
 st.title("SQL Agent Explorer")
 st.caption("Detailed step-by-step agentic reasoning and execution.")
-st.write("") # Spacer
+st.write("")  # Spacer
 
 # API Settings
 with st.expander("⚙️ Connection Settings", expanded=False):
     base_url = st.text_input("FastAPI base URL", value="http://app:8000")
-    st.caption("Use the Docker service name when Streamlit runs in Compose, or localhost when running locally.")
+    st.caption(
+        "Use the Docker service name when Streamlit runs in Compose, or localhost when running locally."
+    )
 
 question = st.text_area(
     "User Prompt",
@@ -214,10 +228,10 @@ if st.button("Generate Solution", type="primary"):
         st.session_state["live_trace_index"] = {}
 
         trace_placeholder = st.empty()
-        
+
         try:
             final_result = None
-            
+
             with st.status("🤖 Agent is working...", expanded=True) as status_box:
                 for update in stream_question(base_url, question.strip()):
                     key = step_key(update)
@@ -230,7 +244,9 @@ if st.button("Generate Solution", type="primary"):
                         st.session_state["live_trace"].append(trace_index[key])
                     else:
                         merged = merge_step(existing, update)
-                        merged["events"] = list(existing.get("events", [])) + [dict(update)]
+                        merged["events"] = list(existing.get("events", [])) + [
+                            dict(update)
+                        ]
                         trace_index[key] = merged
                         for idx, step in enumerate(st.session_state["live_trace"]):
                             if step.get("key") == key:
@@ -239,15 +255,19 @@ if st.button("Generate Solution", type="primary"):
 
                     with trace_placeholder.container():
                         st.subheader("Agent Trace")
-                        st.caption("Each logical step appears once. Retry and error events stay inside the same card.")
+                        st.caption(
+                            "Each logical step appears once. Retry and error events stay inside the same card."
+                        )
                         for step in st.session_state["live_trace"]:
                             render_step_card(step)
 
                     if "final_response" in update:
                         final_result = update["final_response"]
-                
+
                 if final_result:
-                    status_box.update(label="✅ Query Complete", state="complete", expanded=False)
+                    status_box.update(
+                        label="✅ Query Complete", state="complete", expanded=False
+                    )
                     st.session_state["last_result"] = final_result
                     st.session_state["last_question"] = question.strip()
                     with trace_placeholder.container():
@@ -256,7 +276,9 @@ if st.button("Generate Solution", type="primary"):
                         for step in st.session_state["live_trace"]:
                             render_step_card(step)
                 else:
-                    status_box.update(label="❌ Agent Failed", state="error", expanded=True)
+                    status_box.update(
+                        label="❌ Agent Failed", state="error", expanded=True
+                    )
 
         except Exception as exc:
             st.error(f"Execution Error: {exc}")
@@ -266,9 +288,11 @@ result = st.session_state.get("last_result")
 if result:
     res_status = result.get("status", "failed")
     st.markdown("---")
-    
+
     # Final Result Tabs
-    tab_result, tab_sql, tab_raw = st.tabs(["📊 Final Result", "📝 Full SQL Query", "🔍 Raw API Output"])
+    tab_result, tab_sql, tab_raw = st.tabs(
+        ["📊 Final Result", "📝 Full SQL Query", "🔍 Raw API Output"]
+    )
 
     with tab_result:
         if res_status == "success":

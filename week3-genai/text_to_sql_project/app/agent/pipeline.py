@@ -15,7 +15,6 @@ from app.schema.agent import QueryPlan
 from app.schema.response import QueryResponse
 from app.sql.validator import SQLValidator
 
-
 ROOT_LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
 LOG_DIR = ROOT_LOG_DIR / "prompt_chain"
 AGG_LOG = ROOT_LOG_DIR / "prompts.jsonl"
@@ -52,7 +51,9 @@ class PromptChain:
         ts = int(time.time() * 1000)
         path = LOG_DIR / f"{name}-{ts}.json"
         try:
-            path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+            path.write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
             # also append a redacted single-line JSON to aggregated log
             try:
                 redacted = self._redact_payload(payload)
@@ -69,6 +70,7 @@ class PromptChain:
         This performs a shallow recursive redact for common keys like 'api_key',
         'authorization', 'token' and will trim overly long strings.
         """
+
         def redact_value(val: Any) -> Any:
             if isinstance(val, dict):
                 return {k: redact_value(v) for k, v in val.items()}
@@ -118,7 +120,11 @@ class PromptChain:
                 error=f"Schema introspection failed: {exc}",
                 chain_steps=[{"step": "schema_introspection", "error": str(exc)}],
             )
-            yield {"step": "schema_introspection", "error": str(exc), "final_response": res}
+            yield {
+                "step": "schema_introspection",
+                "error": str(exc),
+                "final_response": res,
+            }
             return
 
         log_payload: dict[str, Any] = {"question": question, "steps": []}
@@ -129,14 +135,19 @@ class PromptChain:
         )
         log_payload["steps"].append({"step": "decompose", "messages": decomp_msgs})
         yield {"step": "decompose", "status": "running", "messages": decomp_msgs}
-        
+
         try:
             content = await self.hf.achat(decomp_msgs)
             log_payload["steps"][-1]["response"] = content
             payload = extract_json_block(content)
             decomposition_payload = json.loads(payload)
             plan = QueryPlan.model_validate(decomposition_payload)
-            yield {"step": "decompose", "status": "done", "plan": plan.model_dump(), "messages": decomp_msgs}
+            yield {
+                "step": "decompose",
+                "status": "done",
+                "plan": plan.model_dump(),
+                "messages": decomp_msgs,
+            }
         except (HFClientError, Exception) as exc:
             logger.exception("Decomposition failed")
             log_payload["steps"][-1]["error"] = str(exc)
@@ -156,12 +167,17 @@ class PromptChain:
         sql_msgs = self.prompts.build_sql_messages(question, plan, schema_context)
         log_payload["steps"].append({"step": "generate_sql", "messages": sql_msgs})
         yield {"step": "generate_sql", "status": "running", "messages": sql_msgs}
-        
+
         try:
             sql_content = (await self.hf.achat(sql_msgs)).strip()
             log_payload["steps"][-1]["response"] = sql_content
             sql = self.validator.normalize_sql(sql_content)
-            yield {"step": "generate_sql", "status": "done", "sql": sql, "messages": sql_msgs}
+            yield {
+                "step": "generate_sql",
+                "status": "done",
+                "sql": sql,
+                "messages": sql_msgs,
+            }
         except HFClientError as exc:
             logger.exception("SQL generation failed")
             log_payload["steps"][-1]["error"] = str(exc)
@@ -195,7 +211,11 @@ class PromptChain:
                 decomposition=plan,
                 chain_steps=log_payload["steps"],
             )
-            yield {"step": "validate", "error": "Unsafe SQL generated", "final_response": res}
+            yield {
+                "step": "validate",
+                "error": "Unsafe SQL generated",
+                "final_response": res,
+            }
             return
 
         log_payload["steps"].append({"step": "validate", "sql": sql, "valid": True})
@@ -205,7 +225,12 @@ class PromptChain:
 
         # Execute with repair loop
         for attempt in range(1, max_attempts + 1):
-            yield {"step": "execute", "status": "running", "attempt": attempt, "sql": sql}
+            yield {
+                "step": "execute",
+                "status": "running",
+                "attempt": attempt,
+                "sql": sql,
+            }
             try:
                 rows = await self.executor.run_sql(sql)
                 execution_ms = round((time.perf_counter() - started_at) * 1000, 2)
@@ -215,6 +240,7 @@ class PromptChain:
                     else next(iter(rows[0].values()))
                 )
                 from app.agent.utils import summarize_result
+
                 summary = summarize_result(rows, sql=sql)
 
                 log_payload["steps"].append(
@@ -238,7 +264,15 @@ class PromptChain:
                     chain_steps=log_payload["steps"],
                 )
                 preview = rows[:5]
-                yield {"step": "execute", "status": "done", "attempt": attempt, "sql": sql, "result_count": len(rows), "result_preview": preview, "final_response": res}
+                yield {
+                    "step": "execute",
+                    "status": "done",
+                    "attempt": attempt,
+                    "sql": sql,
+                    "result_count": len(rows),
+                    "result_preview": preview,
+                    "final_response": res,
+                }
                 return
             except Exception as exc:
                 last_error = str(exc)
@@ -246,7 +280,12 @@ class PromptChain:
                 log_payload["steps"].append(
                     {"step": "execute_error", "attempt": attempt, "error": last_error}
                 )
-                yield {"step": "execute_error", "attempt": attempt, "error": last_error, "sql": sql}
+                yield {
+                    "step": "execute_error",
+                    "attempt": attempt,
+                    "error": last_error,
+                    "sql": sql,
+                }
 
                 if attempt >= max_attempts:
                     break
@@ -256,22 +295,41 @@ class PromptChain:
                     question, plan, schema_context, sql, last_error
                 )
                 log_payload["steps"].append({"step": "repair", "messages": repair_msgs})
-                yield {"step": "repair", "status": "running", "attempt": attempt, "messages": repair_msgs}
+                yield {
+                    "step": "repair",
+                    "status": "running",
+                    "attempt": attempt,
+                    "messages": repair_msgs,
+                }
                 try:
                     repaired = (await self.hf.achat(repair_msgs)).strip()
                     log_payload["steps"][-1]["response"] = repaired
                     repaired_sql = self.validator.normalize_sql(repaired)
-                    yield {"step": "repair", "status": "done", "attempt": attempt, "repaired_sql": repaired_sql, "messages": repair_msgs}
+                    yield {
+                        "step": "repair",
+                        "status": "done",
+                        "attempt": attempt,
+                        "repaired_sql": repaired_sql,
+                        "messages": repair_msgs,
+                    }
                 except HFClientError as repair_exc:
                     last_error = f"{last_error}; repair failed: {repair_exc}"
                     log_payload["steps"][-1]["error"] = str(repair_exc)
-                    yield {"step": "repair", "attempt": attempt, "error": str(repair_exc)}
+                    yield {
+                        "step": "repair",
+                        "attempt": attempt,
+                        "error": str(repair_exc),
+                    }
                     break
 
                 if not repaired_sql or not self.validator.validate_sql(repaired_sql):
                     last_error = f"{last_error}; repaired SQL invalid"
                     log_payload["steps"][-1]["repaired_sql"] = repaired_sql
-                    yield {"step": "repair", "attempt": attempt, "error": "Repaired SQL invalid"}
+                    yield {
+                        "step": "repair",
+                        "attempt": attempt,
+                        "error": "Repaired SQL invalid",
+                    }
                     break
 
                 sql = repaired_sql

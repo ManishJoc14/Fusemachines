@@ -8,7 +8,6 @@ from app.core.config import settings
 from app.schema.request import QueryRequest
 from app.schema.response import QueryResponse
 
-
 app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION)
 
 # Add CORS middleware
@@ -44,7 +43,7 @@ async def agent_sql_stream(req: QueryRequest):
                     clean_update[k] = v.model_dump()
                 else:
                     clean_update[k] = v
-            
+
             yield json.dumps(clean_update, default=str) + "\n"
 
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")

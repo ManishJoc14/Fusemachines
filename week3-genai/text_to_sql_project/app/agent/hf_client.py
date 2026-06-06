@@ -22,19 +22,21 @@ class HFClientError(RuntimeError):
 
 
 def extract_json_block(text: str) -> str:
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", text, re.IGNORECASE | re.DOTALL)
+    fenced = re.search(
+        r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", text, re.IGNORECASE | re.DOTALL
+    )
     if fenced:
         return fenced.group(1).strip()
 
     obj_start = text.find("{")
     obj_end = text.rfind("}")
     if obj_start != -1 and obj_end != -1 and obj_end > obj_start:
-        return text[obj_start: obj_end + 1].strip()
+        return text[obj_start : obj_end + 1].strip()
 
     arr_start = text.find("[")
     arr_end = text.rfind("]")
     if arr_start != -1 and arr_end != -1 and arr_end > arr_start:
-        return text[arr_start: arr_end + 1].strip()
+        return text[arr_start : arr_end + 1].strip()
 
     raise HFClientError("HF response did not contain a JSON object or array")
 
@@ -52,7 +54,9 @@ class HFClient:
     ):
         self.api_key = api_key or settings.HUGGINGFACE_API_KEY
         self.model = model or settings.HF_MODEL
-        self.temperature = temperature if temperature is not None else settings.HF_TEMPERATURE
+        self.temperature = (
+            temperature if temperature is not None else settings.HF_TEMPERATURE
+        )
         self.timeout = timeout
 
     def _get_headers(self) -> Dict[str, str]:
@@ -61,7 +65,9 @@ class HFClient:
             "Content-Type": "application/json",
         }
 
-    def _get_payload(self, messages: List[Dict[str, str]], temperature: Optional[float]) -> Dict[str, Any]:
+    def _get_payload(
+        self, messages: List[Dict[str, str]], temperature: Optional[float]
+    ) -> Dict[str, Any]:
         payload = {
             "model": str(self.model),
             "messages": messages,
@@ -70,7 +76,7 @@ class HFClient:
         temp = temperature if temperature is not None else self.temperature
         if temp is not None:
             payload["temperature"] = temp
-        
+
         return payload
 
     def _parse_response(self, raw: str) -> str:
@@ -92,7 +98,12 @@ class HFClient:
                 pass
 
         # Common: [{'generated_text': '...'}] or {'generated_text': '...'}
-        if isinstance(data, list) and data and isinstance(data[0], dict) and "generated_text" in data[0]:
+        if (
+            isinstance(data, list)
+            and data
+            and isinstance(data[0], dict)
+            and "generated_text" in data[0]
+        ):
             return data[0]["generated_text"]
         if isinstance(data, dict) and "generated_text" in data:
             return data["generated_text"]
@@ -124,16 +135,18 @@ class HFClient:
 
         raise HFClientError("Unexpected HuggingFace response payload structure")
 
-    def chat(self, messages: List[Dict[str, str]], temperature: Optional[float] = None) -> str:
+    def chat(
+        self, messages: List[Dict[str, str]], temperature: Optional[float] = None
+    ) -> str:
         if not self.api_key:
             raise HFClientError("HUGGINGFACE_API_KEY is not configured")
-        
+
         url = "https://router.huggingface.co/v1/chat/completions"
         headers = self._get_headers()
         payload = self._get_payload(messages, temperature)
-        
+
         logger.debug(f"HF Request Payload: {json.dumps(payload)}")
-        
+
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.post(url, headers=headers, json=payload)
@@ -144,18 +157,22 @@ class HFClient:
                 body = exc.response.text
             except Exception:
                 body = "(unable to read response body)"
-            raise HFClientError(f"HuggingFace HTTP {exc.response.status_code}: {body}") from exc
+            raise HFClientError(
+                f"HuggingFace HTTP {exc.response.status_code}: {body}"
+            ) from exc
         except httpx.RequestError as exc:
             raise HFClientError(f"HuggingFace request failed: {exc}") from exc
 
-    async def achat(self, messages: List[Dict[str, str]], temperature: Optional[float] = None) -> str:
+    async def achat(
+        self, messages: List[Dict[str, str]], temperature: Optional[float] = None
+    ) -> str:
         if not self.api_key:
             raise HFClientError("HUGGINGFACE_API_KEY is not configured")
 
         url = "https://router.huggingface.co/v1/chat/completions"
         headers = self._get_headers()
         payload = self._get_payload(messages, temperature)
-        
+
         logger.debug(f"HF Async Request Payload: {json.dumps(payload)}")
 
         try:
@@ -168,6 +185,8 @@ class HFClient:
                 body = exc.response.text
             except Exception:
                 body = "(unable to read response body)"
-            raise HFClientError(f"HuggingFace HTTP {exc.response.status_code}: {body}") from exc
+            raise HFClientError(
+                f"HuggingFace HTTP {exc.response.status_code}: {body}"
+            ) from exc
         except httpx.RequestError as exc:
             raise HFClientError(f"HuggingFace request failed: {exc}") from exc

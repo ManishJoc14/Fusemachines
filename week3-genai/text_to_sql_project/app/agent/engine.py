@@ -25,7 +25,6 @@ class TextToSQLAgent:
         self.sql_executor = sql_executor or SQLExecutor()
         self.sql_validator = sql_validator or SQLValidator()
 
-
     # Chat helpers removed — prompt chaining delegated to `PromptChain`.
 
     async def run(self, question: str, max_retries: int | None = None) -> QueryResponse:

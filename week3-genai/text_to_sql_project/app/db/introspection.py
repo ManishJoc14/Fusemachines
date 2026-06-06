@@ -40,19 +40,13 @@ class SchemaInspector:
             return self._schema_context_cache
 
         async with AsyncSessionLocal() as session:
-            column_result = await session.execute(
-                text(
-                    """
+            column_result = await session.execute(text("""
                     SELECT table_name, column_name, data_type
                     FROM information_schema.columns
                     WHERE table_schema = 'public'
                     ORDER BY table_name, ordinal_position
-                    """
-                )
-            )
-            fk_result = await session.execute(
-                text(
-                    """
+                    """))
+            fk_result = await session.execute(text("""
                     SELECT
                         tc.table_name,
                         kcu.column_name,
@@ -68,9 +62,7 @@ class SchemaInspector:
                     WHERE tc.constraint_type = 'FOREIGN KEY'
                       AND tc.table_schema = 'public'
                     ORDER BY tc.table_name, kcu.column_name
-                    """
-                )
-            )
+                    """))
 
             columns = [dict(row) for row in column_result.mappings().all()]
             foreign_keys = [dict(row) for row in fk_result.mappings().all()]
