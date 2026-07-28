@@ -34,5 +34,6 @@ Thumbs.db
 *.h5
 *.pt
 *.joblib
+*.onnx
 
 kaggle.json
