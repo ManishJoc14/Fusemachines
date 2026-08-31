@@ -10,6 +10,7 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "fastapi>=0.115,<1.0",
     "httpx>=0.28,<1.0",
+    # The SDK targets Hugging Face Router through its compatible HTTP protocol.
     "openai>=1.60,<3.0",
     "pydantic>=2.10,<3.0",
     "pydantic-settings>=2.7,<3.0",
@@ -62,4 +63,3 @@ skip_covered = true
 python_version = "3.11"
 strict = true
 plugins = ["pydantic.mypy"]
-
