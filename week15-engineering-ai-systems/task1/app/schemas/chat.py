@@ -30,7 +30,9 @@ class AssistantOutput(BaseModel):
 class SourceReference(BaseModel):
     chunk_id: str
     document_name: str
+    chunk_index: int
     score: float
+    text_preview: str
 
 
 class ToolExecution(BaseModel):
@@ -38,6 +40,13 @@ class ToolExecution(BaseModel):
     arguments: dict[str, object]
     output: str
     success: bool
+
+
+class PipelineStats(BaseModel):
+    retrieval_strategy: Literal["dense_cosine", "disabled"]
+    retrieved_chunks: int
+    cited_chunks: int
+    tool_executions: int
 
 
 class ChatResponse(BaseModel):
@@ -48,3 +57,4 @@ class ChatResponse(BaseModel):
     tools_used: list[ToolExecution]
     model: str
     used_fallback: bool
+    pipeline_stats: PipelineStats

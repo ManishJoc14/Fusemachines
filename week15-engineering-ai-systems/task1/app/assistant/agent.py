@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 
 from app.assistant.prompts import build_system_prompt
 from app.core.config import Settings
 from app.llm.client import ChatMessageParam, LLMClient, LLMError
 from app.schemas.chat import AssistantOutput, ChatMessage, ToolExecution
 from app.tools.registry import ToolRegistry
+
+
+@dataclass(frozen=True, slots=True)
+class AgentResult:
+    output: AssistantOutput
+    tools_used: list[ToolExecution]
+    model: str
+    used_fallback: bool
 
 
 class AssistantAgent:
@@ -28,7 +37,8 @@ class AssistantAgent:
         *,
         history: list[ChatMessage] | None = None,
         context: str | None = None,
-    ) -> tuple[AssistantOutput, list[ToolExecution], str, bool]:
+    ) -> AgentResult:
+        # Step 1: Build one conversation from the prompt, history, and question.
         messages: list[ChatMessageParam] = [
             {"role": "system", "content": build_system_prompt(context)}
         ]
@@ -40,6 +50,7 @@ class AssistantAgent:
         used_fallback = False
 
         for _ in range(self._max_iterations):
+            # Step 2: Ask the model for either tool calls or the final JSON answer.
             completion = await self._llm.complete(
                 messages,
                 response_model=AssistantOutput,
@@ -51,6 +62,7 @@ class AssistantAgent:
                 # Once fallback starts, keep later tool-loop turns on that model.
                 active_model = completion.model
 
+            # Step 3: Execute requested tools and return their results to the model.
             if completion.message.tool_calls:
                 messages.append(completion.message.model_dump(exclude_none=True))
                 for tool_call in completion.message.tool_calls:
@@ -71,6 +83,12 @@ class AssistantAgent:
             if completion.parsed is None:
                 raise LLMError("Model returned neither tool calls nor a final answer")
 
-            return completion.parsed, executions, completion.model, used_fallback
+            # Step 4: Return the validated final answer and execution metadata.
+            return AgentResult(
+                output=completion.parsed,
+                tools_used=executions,
+                model=completion.model,
+                used_fallback=used_fallback,
+            )
 
         raise LLMError("Maximum tool-call iterations reached")

@@ -9,7 +9,7 @@ class TextChunker:
     def __init__(self, chunk_size: int, chunk_overlap: int) -> None:
         if chunk_size <= 0:
             raise ValueError("chunk_size must be positive")
-        
+
         if chunk_overlap < 0 or chunk_overlap >= chunk_size:
             raise ValueError("chunk_overlap must be between 0 and chunk_size")
 
