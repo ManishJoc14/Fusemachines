@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from openai.types.chat import ChatCompletionMessage
+
 from app.assistant.prompts import build_system_prompt
 from app.core.config import Settings
 from app.llm.client import ChatMessageParam, LLMClient, LLMError
@@ -39,11 +41,7 @@ class AssistantAgent:
         context: str | None = None,
     ) -> AgentResult:
         # Step 1: Build one conversation from the prompt, history, and question.
-        messages: list[ChatMessageParam] = [
-            {"role": "system", "content": build_system_prompt(context)}
-        ]
-        messages.extend(message.model_dump() for message in history or [])
-        messages.append({"role": "user", "content": question})
+        messages = self._build_messages(question, history, context)
 
         executions: list[ToolExecution] = []
         active_model: str | None = None
@@ -64,20 +62,11 @@ class AssistantAgent:
 
             # Step 3: Execute requested tools and return their results to the model.
             if completion.message.tool_calls:
-                messages.append(completion.message.model_dump(exclude_none=True))
-                for tool_call in completion.message.tool_calls:
-                    execution = await self._tools.execute(
-                        tool_call.function.name,
-                        tool_call.function.arguments,
-                    )
-                    executions.append(execution)
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": json.dumps(execution.model_dump()),
-                        }
-                    )
+                await self._execute_tools(
+                    completion.message,
+                    messages,
+                    executions,
+                )
                 continue
 
             if completion.parsed is None:
@@ -92,3 +81,38 @@ class AssistantAgent:
             )
 
         raise LLMError("Maximum tool-call iterations reached")
+
+    @staticmethod
+    def _build_messages(
+        question: str,
+        history: list[ChatMessage] | None,
+        context: str | None,
+    ) -> list[ChatMessageParam]:
+        messages: list[ChatMessageParam] = [
+            {"role": "system", "content": build_system_prompt(context)}
+        ]
+        messages.extend(message.model_dump() for message in history or [])
+        messages.append({"role": "user", "content": question})
+        return messages
+
+    async def _execute_tools(
+        self,
+        assistant_message: ChatCompletionMessage,
+        messages: list[ChatMessageParam],
+        executions: list[ToolExecution],
+    ) -> None:
+        messages.append(assistant_message.model_dump(exclude_none=True))
+
+        for tool_call in assistant_message.tool_calls or []:
+            execution = await self._tools.execute(
+                tool_call.function.name,
+                tool_call.function.arguments,
+            )
+            executions.append(execution)
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": json.dumps(execution.model_dump()),
+                }
+            )

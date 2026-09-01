@@ -23,6 +23,8 @@ class EmbeddingService:
         self._model: SentenceTransformer | None = None
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Encode a batch on a worker thread and return plain Python vectors."""
+
         if not texts:
             return []
         return await asyncio.to_thread(self._encode, texts)
@@ -32,19 +34,30 @@ class EmbeddingService:
         return vectors[0]
 
     def _encode(self, texts: list[str]) -> list[list[float]]:
-        if self._model is None:
-            self._model = SentenceTransformer(self._model_name, device=self._device)
+        # Step 1: Lazily load the model on the first embedding request.
+        model = self._get_model()
 
-        vectors = self._model.encode(
+        # Step 2: Encode a normalized batch for cosine similarity search.
+        vectors = model.encode(
             texts,
             batch_size=self._batch_size,
             convert_to_numpy=True,
             normalize_embeddings=True,
             show_progress_bar=False,
         )
-        if vectors.shape[1] != self._expected_dimension:
+
+        # Step 3: Catch model/configuration mismatches before writing vectors.
+        self._validate_dimension(vectors.shape[1])
+        return vectors.tolist()
+
+    def _get_model(self) -> SentenceTransformer:
+        if self._model is None:
+            self._model = SentenceTransformer(self._model_name, device=self._device)
+        return self._model
+
+    def _validate_dimension(self, actual_dimension: int) -> None:
+        if actual_dimension != self._expected_dimension:
             raise ValueError(
                 "Embedding dimension mismatch: "
-                f"expected {self._expected_dimension}, got {vectors.shape[1]}"
+                f"expected {self._expected_dimension}, got {actual_dimension}"
             )
-        return vectors.tolist()

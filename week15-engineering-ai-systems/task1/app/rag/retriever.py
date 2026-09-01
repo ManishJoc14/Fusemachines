@@ -20,7 +20,12 @@ class Retriever:
         self._score_threshold = score_threshold
 
     async def retrieve(self, query: str) -> list[RetrievedChunk]:
+        """Embed a question and retrieve its nearest document chunks."""
+
+        # Step 1: Represent the question in the same vector space as documents.
         query_vector = await self._embeddings.embed_query(query)
+
+        # Step 2: Apply the configured result limit and relevance threshold.
         return await self._vector_store.search(
             query_vector,
             limit=self._top_k,
@@ -29,6 +34,8 @@ class Retriever:
 
     @staticmethod
     def format_context(chunks: list[RetrievedChunk]) -> str | None:
+        """Format evidence with chunk IDs that the model can cite."""
+
         if not chunks:
             return None
 

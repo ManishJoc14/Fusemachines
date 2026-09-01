@@ -40,24 +40,27 @@ class ToolRegistry:
         return [tool.as_chat_tool() for tool in self._tools.values()]
 
     async def execute(self, name: str, raw_arguments: str) -> ToolExecution:
+        """Find, validate, and execute one model-requested tool call."""
+
+        # Step 1: Reject tools that were not registered by the application.
         tool = self._tools.get(name)
         if tool is None:
-            return ToolExecution(
-                name=name,
-                arguments={},
-                output=f"Unknown tool: {name}",
-                success=False,
-            )
+            return self._failure(name, {}, f"Unknown tool: {name}")
 
-        arguments: object = {}
+        arguments: dict[str, object] = {}
         try:
-            arguments = json.loads(raw_arguments)
+            # Step 2: Parse JSON and validate the tool's input schema.
+            arguments = self._parse_arguments(raw_arguments)
             validated = tool.input_model.model_validate(arguments)
-            result = tool.handler(validated)
-            output = await result if inspect.isawaitable(result) else result
+            arguments = validated.model_dump()
+
+            # Step 3: Run either a synchronous or asynchronous handler.
+            output = await self._run_handler(tool, validated)
+
+            # Step 4: Return a serializable result to the assistant loop.
             return ToolExecution(
                 name=name,
-                arguments=validated.model_dump(),
+                arguments=arguments,
                 output=output,
                 success=True,
             )
@@ -67,10 +70,29 @@ class ToolRegistry:
             ValueError,
             ArithmeticError,
         ) as exc:
-            arguments = arguments if isinstance(arguments, dict) else {}
-            return ToolExecution(
-                name=name,
-                arguments=arguments,
-                output=f"Tool error: {exc}",
-                success=False,
-            )
+            return self._failure(name, arguments, f"Tool error: {exc}")
+
+    @staticmethod
+    def _parse_arguments(raw_arguments: str) -> dict[str, object]:
+        decoded: object = json.loads(raw_arguments)
+        if not isinstance(decoded, dict):
+            raise ValueError("Tool arguments must be a JSON object")
+        return decoded
+
+    @staticmethod
+    async def _run_handler(tool: RegisteredTool, input_data: BaseModel) -> str:
+        result = tool.handler(input_data)
+        return await result if inspect.isawaitable(result) else result
+
+    @staticmethod
+    def _failure(
+        name: str,
+        arguments: dict[str, object],
+        message: str,
+    ) -> ToolExecution:
+        return ToolExecution(
+            name=name,
+            arguments=arguments,
+            output=message,
+            success=False,
+        )

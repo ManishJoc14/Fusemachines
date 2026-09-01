@@ -23,43 +23,76 @@ class TextChunker:
         document_id: str,
         document_name: str,
     ) -> list[DocumentChunk]:
+        """Split text into overlapping chunks near readable boundaries."""
+
         chunks: list[DocumentChunk] = []
         start = 0
 
         while start < len(text):
+            # Step 1: Prefer a paragraph, sentence, or word boundary.
             hard_end = min(start + self._chunk_size, len(text))
             end = self._find_natural_boundary(text, start, hard_end)
-            raw_chunk = text[start:end]
-            leading_whitespace = len(raw_chunk) - len(raw_chunk.lstrip())
-            clean_text = raw_chunk.strip()
 
-            if clean_text:
-                char_start = start + leading_whitespace
-                char_end = char_start + len(clean_text)
-                chunk_index = len(chunks)
-                chunk_id = str(uuid5(NAMESPACE_URL, f"{document_id}:{chunk_index}"))
-                chunks.append(
-                    DocumentChunk(
-                        chunk_id=chunk_id,
-                        document_id=document_id,
-                        document_name=document_name,
-                        chunk_index=chunk_index,
-                        text=clean_text,
-                        char_start=char_start,
-                        char_end=char_end,
-                    )
-                )
+            # Step 2: Build a clean chunk with stable source metadata.
+            chunk = self._build_chunk(
+                text[start:end],
+                source_start=start,
+                chunk_index=len(chunks),
+                document_id=document_id,
+                document_name=document_name,
+            )
+            if chunk is not None:
+                chunks.append(chunk)
 
+            # Step 3: Move forward while retaining the configured overlap.
             if end >= len(text):
                 break
             start = max(start + 1, end - self._chunk_overlap)
 
         return chunks
 
+        # EXAMPLE:
+        # Chunk 0 = Python is a programming language.
+        # Chunk 1 = programming language. It is commonly used for backend development.
+        # Chunk 2 = backend development. FastAPI is a Python framework for building APIs.
+
+    @staticmethod
+    def _build_chunk(
+        raw_text: str,
+        *,
+        source_start: int,
+        chunk_index: int,
+        document_id: str,
+        document_name: str,
+    ) -> DocumentChunk | None:
+        clean_text = raw_text.strip()
+        if not clean_text:
+            return None
+
+        leading_whitespace = len(raw_text) - len(raw_text.lstrip())
+        char_start = source_start + leading_whitespace
+        chunk_id = str(uuid5(NAMESPACE_URL, f"{document_id}:{chunk_index}"))
+
+        return DocumentChunk(
+            chunk_id=chunk_id,
+            document_id=document_id,
+            document_name=document_name,
+            chunk_index=chunk_index,
+            text=clean_text,
+            char_start=char_start,
+            char_end=char_start + len(clean_text),
+        )
+
     def _find_natural_boundary(self, text: str, start: int, hard_end: int) -> int:
         if hard_end == len(text):
             return hard_end
 
+        # Search in the second half of the chunk for natural boundary
+        # Preference is:
+        # 1. paragraph boundary
+        # 2. sentence boundary
+        # 3. word boundary
+        # 4. otherwise hard cut
         earliest_boundary = start + self._chunk_size // 2
         for separator in ("\n\n", ". ", " "):
             position = text.rfind(separator, earliest_boundary, hard_end)

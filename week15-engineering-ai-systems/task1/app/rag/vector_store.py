@@ -43,10 +43,23 @@ class VectorStore:
         chunks: list[DocumentChunk],
         vectors: list[list[float]],
     ) -> None:
+        """Delete old chunks for a document and write its current chunks."""
+
+        # Step 1: Validate input and ensure the collection exists.
         if len(chunks) != len(vectors):
             raise ValueError("Every chunk must have exactly one embedding")
-
         await self.ensure_collection()
+
+        # Step 2: Remove vectors from an earlier ingestion of this document.
+        await self._delete_document(document_id)
+
+        # Step 3: Convert chunks and embeddings into Qdrant points.
+        points = self._build_points(chunks, vectors)
+
+        # Step 4: Write bounded batches instead of one unbounded request.
+        await self._upsert_batches(points)
+
+    async def _delete_document(self, document_id: str) -> None:
         await self._client.delete(
             collection_name=self._collection,
             points_selector=models.FilterSelector(
@@ -62,7 +75,12 @@ class VectorStore:
             wait=True,
         )
 
-        points = [
+    @staticmethod
+    def _build_points(
+        chunks: list[DocumentChunk],
+        vectors: list[list[float]],
+    ) -> list[models.PointStruct]:
+        return [
             models.PointStruct(
                 id=chunk.chunk_id,
                 vector=vector,
@@ -70,6 +88,8 @@ class VectorStore:
             )
             for chunk, vector in zip(chunks, vectors, strict=True)
         ]
+
+    async def _upsert_batches(self, points: list[models.PointStruct]) -> None:
         for start in range(0, len(points), self.UPSERT_BATCH_SIZE):
             await self._client.upsert(
                 collection_name=self._collection,
@@ -84,6 +104,9 @@ class VectorStore:
         limit: int,
         score_threshold: float,
     ) -> list[RetrievedChunk]:
+        """Find nearest chunks and validate their stored payloads."""
+
+        # Step 1: Search Qdrant using cosine similarity.
         await self.ensure_collection()
         response = await self._client.query_points(
             collection_name=self._collection,
@@ -94,9 +117,11 @@ class VectorStore:
             with_vectors=False,
         )
 
-        results: list[RetrievedChunk] = []
-        for point in response.points:
-            payload = dict(point.payload or {})
-            payload["score"] = point.score
-            results.append(RetrievedChunk.model_validate(payload))
-        return results
+        # Step 2: Convert database points back into domain schemas.
+        return [self._to_retrieved_chunk(point) for point in response.points]
+
+    @staticmethod
+    def _to_retrieved_chunk(point: models.ScoredPoint) -> RetrievedChunk:
+        payload = dict(point.payload or {})
+        payload["score"] = point.score
+        return RetrievedChunk.model_validate(payload)

@@ -26,6 +26,26 @@ def _copy_upload(source: BinaryIO, destination: Path, max_bytes: int) -> None:
             target.write(chunk)
 
 
+def _create_temporary_path(filename: str) -> Path:
+    file_descriptor, temporary_name = tempfile.mkstemp(suffix=Path(filename).suffix)
+    os.close(file_descriptor)
+    return Path(temporary_name)
+
+
+async def _save_upload(file: UploadFile, destination: Path, max_bytes: int) -> None:
+    await file.seek(0)
+    await asyncio.to_thread(_copy_upload, file.file, destination, max_bytes)
+
+
+def _upload_error(exc: ValueError) -> HTTPException:
+    status_code = (
+        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+        if "size limit" in str(exc)
+        else status.HTTP_400_BAD_REQUEST
+    )
+    return HTTPException(status_code=status_code, detail=str(exc))
+
+
 @router.post(
     "/documents",
     response_model=IngestionResult,
@@ -35,27 +55,19 @@ async def upload_document(
     file: UploadFile,
     service: Annotated[IngestionService, Depends(get_ingestion_service)],
 ) -> IngestionResult:
+    """Temporarily save an upload, ingest it, and remove the copy."""
+
+    # Step 1: Sanitize the display name and allocate a temporary file.
     safe_name = Path(file.filename or "document.txt").name
-    file_descriptor, temporary_name = tempfile.mkstemp(suffix=Path(safe_name).suffix)
-    os.close(file_descriptor)
-    temporary_path = Path(temporary_name)
+    temporary_path = _create_temporary_path(safe_name)
 
     try:
-        await file.seek(0)
-        await asyncio.to_thread(
-            _copy_upload,
-            file.file,
-            temporary_path,
-            service.max_upload_bytes,
-        )
+        # Step 2: Copy with a hard limit, then run the ingestion pipeline.
+        await _save_upload(file, temporary_path, service.max_upload_bytes)
         return await service.ingest(temporary_path, document_name=safe_name)
     except ValueError as exc:
-        status_code = (
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
-            if "size limit" in str(exc)
-            else status.HTTP_400_BAD_REQUEST
-        )
-        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+        raise _upload_error(exc) from exc
     finally:
+        # Step 3: Clean temporary resources on both success and failure.
         await file.close()
         await asyncio.to_thread(temporary_path.unlink, missing_ok=True)

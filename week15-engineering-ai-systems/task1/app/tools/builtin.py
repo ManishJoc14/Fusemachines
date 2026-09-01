@@ -40,8 +40,13 @@ class SafeCalculator:
     }
 
     def evaluate(self, expression: str) -> int | float:
+        # Step 1: Parse syntax without evaluating Python code.
         tree = ast.parse(expression, mode="eval")
+
+        # Step 2: Recursively allow only numeric nodes and approved operators.
         result = self._evaluate_node(tree.body)
+
+        # Step 3: Reject values that are unsafe or impractical to serialize.
         if isinstance(result, float) and not math.isfinite(result):
             raise ValueError("Result must be finite")
         if abs(result) > 1e15:

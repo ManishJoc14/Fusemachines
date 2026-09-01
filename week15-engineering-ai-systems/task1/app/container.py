@@ -19,9 +19,11 @@ class ApplicationContainer:
     """Construct and own the shared services used by API requests."""
 
     def __init__(self, settings: Settings) -> None:
+        # Step 1: Create clients shared for the application's lifetime.
         self.llm_client = LLMClient(settings)
         self.vector_store = VectorStore(settings)
 
+        # Step 2: Assemble the retrieval pipeline.
         embeddings = EmbeddingService(
             settings.embedding_model,
             device=settings.embedding_device,
@@ -34,12 +36,15 @@ class ApplicationContainer:
             top_k=settings.rag_retrieval_top_k,
             score_threshold=settings.rag_score_threshold,
         )
+
+        # Step 3: Assemble the model and tool-calling pipeline.
         agent = AssistantAgent(
             self.llm_client,
             create_default_tool_registry(),
             settings,
         )
 
+        # Step 4: Expose use-case services consumed by API endpoints.
         self.chat_service = ChatService(retriever, agent)
         self.ingestion_service = IngestionService(
             DocumentLoader(),

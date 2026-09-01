@@ -35,32 +35,46 @@ class LLMCompletion(Generic[ResponseModelT]):
     used_fallback: bool
 
 
+@dataclass(frozen=True, slots=True)
+class _BackendConfig:
+    api_key: str
+    base_url: str
+    models: list[str]
+
+
 class LLMClient:
     """OpenAI-compatible client for Hugging Face Router and local vLLM."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-
-        if settings.llm_backend is LLMBackend.HUGGINGFACE:
-            if settings.hf_token is None:  # Guard for static type narrowing.
-                raise ValueError("HF_TOKEN is required for the Hugging Face backend")
-            api_key = settings.hf_token.get_secret_value()
-            base_url = str(settings.hf_base_url).rstrip("/")
-            self._models = [settings.hf_model, settings.hf_fallback_model]
-        else:
-            api_key = settings.vllm_api_key.get_secret_value()
-            base_url = str(settings.vllm_base_url).rstrip("/")
-            self._models = [settings.vllm_model]
-
+        backend = self._backend_config(settings)
+        self._models = backend.models
         self._client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=base_url,
+            api_key=backend.api_key,
+            base_url=backend.base_url,
             timeout=settings.llm_timeout_seconds,
             max_retries=1,
         )
 
     async def close(self) -> None:
         await self._client.close()
+
+    @staticmethod
+    def _backend_config(settings: Settings) -> _BackendConfig:
+        if settings.llm_backend is LLMBackend.HUGGINGFACE:
+            if settings.hf_token is None:  # Guard for static type narrowing.
+                raise ValueError("HF_TOKEN is required for the Hugging Face backend")
+            return _BackendConfig(
+                api_key=settings.hf_token.get_secret_value(),
+                base_url=str(settings.hf_base_url).rstrip("/"),
+                models=[settings.hf_model, settings.hf_fallback_model],
+            )
+
+        return _BackendConfig(
+            api_key=settings.vllm_api_key.get_secret_value(),
+            base_url=str(settings.vllm_base_url).rstrip("/"),
+            models=[settings.vllm_model],
+        )
 
     async def complete(
         self,
@@ -70,30 +84,25 @@ class LLMClient:
         tools: list[ChatCompletionToolParam] | None = None,
         model: str | None = None,
     ) -> LLMCompletion[ResponseModelT]:
-        """Call a model and validate final content against a Pydantic schema."""
+        """Try configured models until one returns tools or valid structured output."""
 
-        candidate_models = [model] if model else self._models
+        candidate_models = self._candidate_models(model)
         errors: list[str] = []
 
         for candidate in candidate_models:
             try:
-                completion = await self._client.chat.completions.create(
-                    model=candidate,
-                    messages=cast(Any, messages),
-                    tools=tools,
-                    tool_choice="auto" if tools else None,
-                    response_format=self._response_format(response_model),
-                    temperature=self._settings.llm_temperature,
-                    top_p=self._settings.llm_top_p,
-                    max_tokens=self._settings.llm_max_output_tokens,
+                # Step 1: Send the conversation and schema to this model.
+                message = await self._request(
+                    candidate,
+                    messages,
+                    response_model,
+                    tools,
                 )
-                message = completion.choices[0].message
 
-                # A tool-call turn intentionally has no final structured answer yet.
-                parsed = None
-                if not message.tool_calls:
-                    parsed = self._parse_response(message.content, response_model)
+                # Step 2: Validate content when this is a final-answer turn.
+                parsed = self._parse_final_answer(message, response_model)
 
+                # Step 3: Return the SDK message and validated model output.
                 return LLMCompletion(
                     message=message,
                     parsed=parsed,
@@ -113,6 +122,38 @@ class LLMClient:
                 logger.warning("LLM attempt failed for model %s: %s", candidate, exc)
 
         raise LLMError("All configured models failed: " + " | ".join(errors))
+
+    def _candidate_models(self, requested_model: str | None) -> list[str]:
+        return [requested_model] if requested_model else self._models
+
+    async def _request(
+        self,
+        model: str,
+        messages: list[ChatMessageParam],
+        response_model: type[BaseModel],
+        tools: list[ChatCompletionToolParam] | None,
+    ) -> ChatCompletionMessage:
+        completion = await self._client.chat.completions.create(
+            model=model,
+            messages=cast(Any, messages),
+            tools=tools,
+            tool_choice="auto" if tools else None,
+            response_format=self._response_format(response_model),
+            temperature=self._settings.llm_temperature,
+            top_p=self._settings.llm_top_p,
+            max_tokens=self._settings.llm_max_output_tokens,
+        )
+        return completion.choices[0].message
+
+    def _parse_final_answer(
+        self,
+        message: ChatCompletionMessage,
+        response_model: type[ResponseModelT],
+    ) -> ResponseModelT | None:
+        # Tool-call turns intentionally have no structured answer yet.
+        if message.tool_calls:
+            return None
+        return self._parse_response(message.content, response_model)
 
     @staticmethod
     def _response_format(response_model: type[BaseModel]) -> Any:

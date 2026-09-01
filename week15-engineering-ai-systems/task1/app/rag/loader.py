@@ -22,6 +22,7 @@ class DocumentLoader:
         return await asyncio.to_thread(self._load_sync, path)
 
     def _load_sync(self, path: Path) -> LoadedDocument:
+        # Step 1: Validate the file and supported document type.
         if not path.is_file():
             raise FileNotFoundError(f"Document not found: {path}")
 
@@ -30,7 +31,10 @@ class DocumentLoader:
             supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
             raise ValueError(f"Unsupported document type. Expected one of: {supported}")
 
+        # Step 2: Extract text using the correct reader.
         text = self._read_pdf(path) if extension == ".pdf" else self._read_text(path)
+
+        # Step 3: Remove invalid null bytes and reject empty documents.
         normalized = text.replace("\x00", "").strip()
         if not normalized:
             raise ValueError(f"Document contains no readable text: {path.name}")
