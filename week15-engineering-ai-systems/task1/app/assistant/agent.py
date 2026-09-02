@@ -48,7 +48,7 @@ class AssistantAgent:
         used_fallback = False
 
         for _ in range(self._max_iterations):
-            # Step 2: Ask the model for either tool calls or the final JSON answer.
+            # Step 2: Let the model select any tools it needs.
             completion = await self._llm.complete(
                 messages,
                 response_model=AssistantOutput,
@@ -69,14 +69,23 @@ class AssistantAgent:
                 )
                 continue
 
-            if completion.parsed is None:
-                raise LLMError("Model returned neither tool calls nor a final answer")
+            # Step 4: Request JSON separately because some providers cannot
+            # combine structured output with tool calling in one request.
+            final_completion = await self._llm.complete(
+                messages,
+                response_model=AssistantOutput,
+                model=active_model,
+            )
+            used_fallback = used_fallback or final_completion.used_fallback
 
-            # Step 4: Return the validated final answer and execution metadata.
+            if final_completion.parsed is None:
+                raise LLMError("Model did not return a structured final answer")
+
+            # Step 5: Return the validated answer and execution metadata.
             return AgentResult(
-                output=completion.parsed,
+                output=final_completion.parsed,
                 tools_used=executions,
-                model=completion.model,
+                model=final_completion.model,
                 used_fallback=used_fallback,
             )
 

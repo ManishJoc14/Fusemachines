@@ -7,6 +7,7 @@ from typing import Any, Generic, TypeVar, cast
 
 from openai import (
     APIConnectionError,
+    APIStatusError,
     APITimeoutError,
     AsyncOpenAI,
     InternalServerError,
@@ -100,7 +101,11 @@ class LLMClient:
                 )
 
                 # Step 2: Validate content when this is a final-answer turn.
-                parsed = self._parse_final_answer(message, response_model)
+                parsed = self._parse_final_answer(
+                    message,
+                    response_model,
+                    tools_enabled=bool(tools),
+                )
 
                 # Step 3: Return the SDK message and validated model output.
                 return LLMCompletion(
@@ -111,6 +116,7 @@ class LLMClient:
                 )
             except (
                 APIConnectionError,
+                APIStatusError,
                 APITimeoutError,
                 InternalServerError,
                 RateLimitError,
@@ -138,7 +144,7 @@ class LLMClient:
             messages=cast(Any, messages),
             tools=tools,
             tool_choice="auto" if tools else None,
-            response_format=self._response_format(response_model),
+            response_format=None if tools else self._response_format(response_model),
             temperature=self._settings.llm_temperature,
             top_p=self._settings.llm_top_p,
             max_tokens=self._settings.llm_max_output_tokens,
@@ -149,9 +155,11 @@ class LLMClient:
         self,
         message: ChatCompletionMessage,
         response_model: type[ResponseModelT],
+        *,
+        tools_enabled: bool,
     ) -> ResponseModelT | None:
-        # Tool-call turns intentionally have no structured answer yet.
-        if message.tool_calls:
+        # Tool-selection turns cannot also use JSON mode on some providers.
+        if tools_enabled:
             return None
         return self._parse_response(message.content, response_model)
 
