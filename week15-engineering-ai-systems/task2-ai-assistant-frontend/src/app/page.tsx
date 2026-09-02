@@ -13,11 +13,11 @@ export default function Page() {
     createSession,
     selectSession,
     deleteSession,
-    addUserMessage,
+    sendMessage,
   } = useChatSessions()
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh min-h-0 overflow-hidden">
       <ChatSidebar
         activeSessionId={activeSessionId}
         onCreateSession={createSession}
@@ -25,10 +25,16 @@ export default function Page() {
         onSelectSession={selectSession}
         sessions={sessions}
       />
-      <SidebarInset className="h-svh overflow-hidden">
+      <SidebarInset className="h-full min-h-0 overflow-hidden">
         <ChatWorkspace
+          isStreaming={
+            activeSession?.messages.some(
+              (message) =>
+                message.role === "assistant" && message.status === "streaming"
+            ) ?? false
+          }
           messages={activeSession?.messages ?? []}
-          onSendMessage={addUserMessage}
+          onSendMessage={sendMessage}
           sessionTitle={activeSession?.title}
         />
       </SidebarInset>

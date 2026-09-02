@@ -5,6 +5,12 @@ import Image from "next/image"
 import { ArrowUp, Paperclip } from "lucide-react"
 
 import assistantLogo from "@/app/icon1.png"
+import { ChatMessage } from "@/components/chat/chat-message"
+import {
+  ChatContainerContent,
+  ChatContainerRoot,
+  ChatContainerScrollAnchor,
+} from "@/components/ui/chat-container"
 import {
   InputGroup,
   InputGroupAddon,
@@ -13,16 +19,18 @@ import {
 } from "@/components/ui/input-group"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import type { ChatMessage } from "@/features/chat/types"
+import type { ChatMessage as ChatMessageType } from "@/features/chat/types"
 
 interface ChatWorkspaceProps {
-  messages: ChatMessage[]
+  messages: ChatMessageType[]
+  isStreaming: boolean
   sessionTitle?: string
   onSendMessage: (message: string) => void
 }
 
 export function ChatWorkspace({
   messages,
+  isStreaming,
   sessionTitle,
   onSendMessage,
 }: ChatWorkspaceProps) {
@@ -30,7 +38,7 @@ export function ChatWorkspace({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!message.trim()) return
+    if (!message.trim() || isStreaming) return
 
     onSendMessage(message)
     setMessage("")
@@ -44,7 +52,7 @@ export function ChatWorkspace({
   }
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col">
+    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header className="flex h-14 shrink-0 items-center px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger aria-label="Open chat sessions" />
@@ -55,10 +63,10 @@ export function ChatWorkspace({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4">
+      <ChatContainerRoot className="min-h-0 flex-1 px-4">
         {messages.length === 0 ? (
-          <div className="flex h-full flex-col">
-            <div className="m-auto w-full max-w-3xl pb-20 text-center">
+          <div className="flex h-full w-full items-center justify-center">
+            <div className="w-full max-w-3xl pb-20 text-center">
               <Image
                 alt=""
                 className="mx-auto size-10 rounded-full"
@@ -76,22 +84,14 @@ export function ChatWorkspace({
             </div>
           </div>
         ) : (
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 py-6">
+          <ChatContainerContent className="mx-auto w-full max-w-3xl gap-8 py-6">
             {messages.map((chatMessage) => (
-              <div
-                className={
-                  chatMessage.role === "user"
-                    ? "ml-auto max-w-[85%] rounded-3xl bg-muted px-4 py-2.5 text-sm whitespace-pre-wrap"
-                    : "max-w-none text-sm whitespace-pre-wrap"
-                }
-                key={chatMessage.id}
-              >
-                {chatMessage.content}
-              </div>
+              <ChatMessage key={chatMessage.id} message={chatMessage} />
             ))}
-          </div>
+            <ChatContainerScrollAnchor />
+          </ChatContainerContent>
         )}
-      </div>
+      </ChatContainerRoot>
 
       <div className="shrink-0 px-3 pb-2 sm:px-6">
         <form className="mx-auto max-w-3xl" onSubmit={handleSubmit}>
@@ -101,6 +101,7 @@ export function ChatWorkspace({
             </label>
             <InputGroupTextarea
               className="min-h-16 px-3"
+              disabled={isStreaming}
               id="chat-message"
               onChange={(event) => setMessage(event.target.value)}
               onKeyDown={handleKeyDown}
@@ -119,7 +120,7 @@ export function ChatWorkspace({
               </InputGroupButton>
               <InputGroupButton
                 aria-label="Send message"
-                disabled={!message.trim()}
+                disabled={!message.trim() || isStreaming}
                 size="icon-sm"
                 type="submit"
               >

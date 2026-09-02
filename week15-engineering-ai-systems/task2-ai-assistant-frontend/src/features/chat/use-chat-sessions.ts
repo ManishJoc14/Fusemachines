@@ -2,13 +2,20 @@
 
 import { useEffect, useState } from "react"
 
+import { streamChat } from "./api"
 import {
   createEmptySessionState,
   loadSessionState,
   saveSessionState,
   type SessionState,
 } from "./session-storage"
-import type { ChatSession, UserMessage } from "./types"
+import type {
+  AssistantMessage,
+  ChatHistoryMessage,
+  ChatSession,
+  ChatStreamEvent,
+  UserMessage,
+} from "./types"
 
 export function useChatSessions() {
   const [state, setState] = useState<SessionState>(createEmptySessionState)
@@ -100,60 +107,186 @@ export function useChatSessions() {
     saveSessionState(updatedState)
   }
 
-  function addUserMessage(content: string) {
+  async function sendMessage(content: string) {
     const cleanContent = content.trim()
     if (!cleanContent) return
 
-    // Step 1: Build the user message.
+    // Step 1: Build the user and pending assistant messages.
     const now = new Date().toISOString()
-    const newMessage: UserMessage = {
+    const userMessage: UserMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: cleanContent,
       createdAt: now,
     }
-
-    // Step 2: Add it to the active session.
-    if (activeSession) {
-      const updatedSession: ChatSession = {
-        ...activeSession,
-        title:
-          activeSession.messages.length === 0
-            ? createSessionTitle(cleanContent)
-            : activeSession.title,
-        messages: [...activeSession.messages, newMessage],
-        updatedAt: now,
-      }
-
-      const updatedSessions = state.sessions.map((session) =>
-        session.id === updatedSession.id ? updatedSession : session
-      )
-
-      const updatedState: SessionState = {
-        sessions: updatedSessions,
-        activeSessionId: updatedSession.id,
-      }
-
-      setState(updatedState)
-      saveSessionState(updatedState)
-      return
+    const assistantMessage: AssistantMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "",
+      createdAt: now,
+      status: "streaming",
+      activity: "Starting",
+      activities: ["Started request"],
+      sources: [],
+      tools: [],
     }
 
-    // Step 3: If no session exists, create one with the message.
-    const newSession: ChatSession = {
-      ...buildSession(),
-      title: createSessionTitle(cleanContent),
-      messages: [newMessage],
+    // Step 2: Add both messages to the active session or a new session.
+    const session = activeSession ?? buildSession()
+    const updatedSession: ChatSession = {
+      ...session,
+      title:
+        session.messages.length === 0
+          ? createSessionTitle(cleanContent)
+          : session.title,
+      messages: [...session.messages, userMessage, assistantMessage],
       updatedAt: now,
     }
 
+    const otherSessions = state.sessions.filter(
+      (existingSession) => existingSession.id !== updatedSession.id
+    )
     const updatedState: SessionState = {
-      sessions: [newSession, ...state.sessions],
-      activeSessionId: newSession.id,
+      sessions: [updatedSession, ...otherSessions],
+      activeSessionId: updatedSession.id,
     }
 
     setState(updatedState)
     saveSessionState(updatedState)
+
+    // Step 3: Send previous messages as conversation history.
+    const history: ChatHistoryMessage[] = session.messages
+      .filter((message) => message.content.trim())
+      .map((message) => ({
+        role: message.role,
+        content: message.content,
+      }))
+      .slice(-20)
+
+    try {
+      await streamChat(
+        {
+          message: cleanContent,
+          history,
+          use_rag: session.useRag,
+        },
+        (event) =>
+          handleStreamEvent(updatedSession.id, assistantMessage.id, event)
+      )
+    } catch {
+      markAssistantError(
+        updatedSession.id,
+        assistantMessage.id,
+        "Could not reach the assistant. Please try again."
+      )
+    }
+  }
+
+  function handleStreamEvent(
+    sessionId: string,
+    messageId: string,
+    event: ChatStreamEvent
+  ) {
+    if (event.type === "status") {
+      updateAssistantMessage(sessionId, messageId, (message) => ({
+        ...message,
+        activity: event.message,
+        activities:
+          message.activities?.at(-1) === event.message
+            ? message.activities
+            : [...(message.activities ?? []), event.message],
+      }))
+    }
+
+    if (event.type === "tool") {
+      updateAssistantMessage(sessionId, messageId, (message) => ({
+        ...message,
+        tools: [...message.tools, event.tool],
+      }))
+    }
+
+    if (event.type === "delta") {
+      updateAssistantMessage(sessionId, messageId, (message) => ({
+        ...message,
+        content: message.content + event.content,
+      }))
+    }
+
+    if (event.type === "complete") {
+      updateAssistantMessage(
+        sessionId,
+        messageId,
+        (message) => ({
+          ...message,
+          content: event.response.answer,
+          status: "complete",
+          confidence: event.response.confidence,
+          sources: event.response.sources,
+          tools: event.response.tools_used,
+          model: event.response.model,
+          usedFallback: event.response.used_fallback,
+        }),
+        true
+      )
+    }
+
+    if (event.type === "error") {
+      markAssistantError(sessionId, messageId, event.message)
+    }
+  }
+
+  function markAssistantError(
+    sessionId: string,
+    messageId: string,
+    errorMessage: string
+  ) {
+    updateAssistantMessage(
+      sessionId,
+      messageId,
+      (message) => ({
+        ...message,
+        content: message.content || errorMessage,
+        status: "error",
+        activity: undefined,
+      }),
+      true
+    )
+  }
+
+  function updateAssistantMessage(
+    sessionId: string,
+    messageId: string,
+    update: (message: AssistantMessage) => AssistantMessage,
+    persist = false
+  ) {
+    setState((currentState) => {
+      const updatedSessions = currentState.sessions.map((session) => {
+        if (session.id !== sessionId) return session
+
+        const updatedMessages = session.messages.map((message) => {
+          if (message.id !== messageId || message.role !== "assistant") {
+            return message
+          }
+          return update(message)
+        })
+
+        return {
+          ...session,
+          messages: updatedMessages,
+          updatedAt: new Date().toISOString(),
+        }
+      })
+
+      const updatedState: SessionState = {
+        ...currentState,
+        sessions: updatedSessions,
+      }
+
+      if (persist) {
+        saveSessionState(updatedState)
+      }
+      return updatedState
+    })
   }
 
   return {
@@ -164,7 +297,7 @@ export function useChatSessions() {
     selectSession,
     renameSession,
     deleteSession,
-    addUserMessage,
+    sendMessage,
   }
 }
 

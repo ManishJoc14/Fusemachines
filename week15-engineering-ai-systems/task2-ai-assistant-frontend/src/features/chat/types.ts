@@ -14,11 +14,13 @@ export interface ChatRequest {
 }
 
 export interface SourceReference {
+  citation_number?: number
   chunk_id: string
   document_name: string
   chunk_index: number
   score: number
-  text_preview: string
+  text: string
+  text_preview?: string
 }
 
 export interface ToolExecution {
@@ -82,6 +84,8 @@ export interface UserMessage extends BaseMessage {
 export interface AssistantMessage extends BaseMessage {
   role: "assistant"
   status: MessageStatus
+  activity?: string
+  activities?: string[]
   confidence?: Confidence
   sources: SourceReference[]
   tools: ToolExecution[]
