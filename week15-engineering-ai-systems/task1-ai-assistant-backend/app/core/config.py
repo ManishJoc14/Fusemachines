@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     llm_top_p: float = Field(default=1.0, gt=0.0, le=1.0)
     llm_max_output_tokens: int = Field(default=1200, gt=0)
     llm_timeout_seconds: float = Field(default=60.0, gt=0.0)
-    llm_max_tool_iterations: int = Field(default=5, ge=1, le=10)
+    llm_max_tool_iterations: int = Field(default=5, ge=1, le=20)
 
     monid_api_key: SecretStr | None = None
     monid_base_url: AnyHttpUrl = AnyHttpUrl("https://api.monid.ai")
@@ -60,15 +60,20 @@ class Settings(BaseSettings):
     qdrant_url: AnyHttpUrl = AnyHttpUrl("http://localhost:6333")
     qdrant_api_key: SecretStr | None = None
     qdrant_collection: str = "assistant_documents"
+    qdrant_dense_model: str = "sentence-transformers/all-minilm-l6-v2"
+    qdrant_sparse_model: str = "qdrant/bm25"
+    qdrant_reranker_model: str = "answerdotai/answerai-colbert-small-v1"
+    qdrant_reranker_dimension: int = Field(default=96, gt=0)
 
     rag_chunk_size: int = Field(default=800, gt=0)
     rag_chunk_overlap: int = Field(default=120, ge=0)
     rag_retrieval_top_k: int = Field(default=5, gt=0, le=50)
+    rag_candidate_top_k: int = Field(default=20, gt=0, le=100)
     rag_score_threshold: float = Field(default=0.25, ge=0.0, le=1.0)
 
     documents_directory: Path = Path("data/documents")
     max_upload_size_mb: int = Field(default=10, gt=0)
-    max_batch_upload_files: int = Field(default=10, gt=0, le=50)
+    max_batch_upload_files: int = Field(default=10, gt=0, le=15)
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
@@ -83,6 +88,10 @@ class Settings(BaseSettings):
 
         if self.rag_chunk_overlap >= self.rag_chunk_size:
             raise ValueError("RAG_CHUNK_OVERLAP must be smaller than RAG_CHUNK_SIZE")
+        if self.rag_candidate_top_k < self.rag_retrieval_top_k:
+            raise ValueError(
+                "RAG_CANDIDATE_TOP_K must be at least RAG_RETRIEVAL_TOP_K"
+            )
 
         return self
 

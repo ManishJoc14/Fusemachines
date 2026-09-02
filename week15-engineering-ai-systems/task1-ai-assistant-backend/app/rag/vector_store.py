@@ -17,6 +17,9 @@ class CloudInferenceUnavailable(RuntimeError):
 
 class VectorStore:
     UPSERT_BATCH_SIZE = 100
+    DENSE_VECTOR = "dense"
+    SPARSE_VECTOR = "sparse"
+    RERANK_VECTOR = "multi"
 
     def __init__(self, settings: Settings) -> None:
         api_key = (
@@ -31,7 +34,11 @@ class VectorStore:
         )
         self._collection = settings.qdrant_collection
         self._dimension = settings.embedding_dimension
-        self._embedding_model = settings.embedding_model
+        self._dense_model = settings.qdrant_dense_model
+        self._sparse_model = settings.qdrant_sparse_model
+        self._reranker_model = settings.qdrant_reranker_model
+        self._reranker_dimension = settings.qdrant_reranker_dimension
+        self._candidate_limit = settings.rag_candidate_top_k
         self._cloud_inference_available = True
         self._collection_ready = False
         self._collection_lock = asyncio.Lock()
@@ -59,10 +66,25 @@ class VectorStore:
         if not await self._client.collection_exists(self._collection):
             await self._client.create_collection(
                 collection_name=self._collection,
-                vectors_config=models.VectorParams(
-                    size=self._dimension,
-                    distance=models.Distance.COSINE,
-                ),
+                vectors_config={
+                    self.DENSE_VECTOR: models.VectorParams(
+                        size=self._dimension,
+                        distance=models.Distance.COSINE,
+                    ),
+                    self.RERANK_VECTOR: models.VectorParams(
+                        size=self._reranker_dimension,
+                        distance=models.Distance.COSINE,
+                        multivector_config=models.MultiVectorConfig(
+                            comparator=models.MultiVectorComparator.MAX_SIM,
+                        ),
+                        hnsw_config=models.HnswConfigDiff(m=0),
+                    ),
+                },
+                sparse_vectors_config={
+                    self.SPARSE_VECTOR: models.SparseVectorParams(
+                        modifier=models.Modifier.IDF,
+                    )
+                },
             )
 
         # Step 2: Index the field used to replace an existing document.
@@ -89,10 +111,20 @@ class VectorStore:
             points = [
                 models.PointStruct(
                     id=chunk.chunk_id,
-                    vector=models.Document(
-                        text=chunk.text,
-                        model=self._embedding_model,
-                    ),
+                    vector={
+                        self.DENSE_VECTOR: models.Document(
+                            text=chunk.text,
+                            model=self._dense_model,
+                        ),
+                        self.SPARSE_VECTOR: models.Document(
+                            text=chunk.text,
+                            model=self._sparse_model,
+                        ),
+                        self.RERANK_VECTOR: models.Document(
+                            text=chunk.text,
+                            model=self._reranker_model,
+                        ),
+                    },
                     payload=chunk.model_dump(),
                 )
                 for chunk in chunks
@@ -125,6 +157,10 @@ class VectorStore:
         await self._upsert_batches(points)
 
     async def _delete_document(self, document_id: str) -> None:
+        if not await self._client.collection_exists(self._collection):
+            self._collection_ready = False
+            return
+
         await self._client.delete(
             collection_name=self._collection,
             points_selector=models.FilterSelector(
@@ -140,15 +176,16 @@ class VectorStore:
             wait=True,
         )
 
-    @staticmethod
+    @classmethod
     def _build_points(
+        cls,
         chunks: list[DocumentChunk],
         vectors: list[list[float]],
     ) -> list[models.PointStruct]:
         return [
             models.PointStruct(
                 id=chunk.chunk_id,
-                vector=vector,
+                vector={cls.DENSE_VECTOR: vector},
                 payload=chunk.model_dump(),
             )
             for chunk, vector in zip(chunks, vectors, strict=True)
@@ -176,6 +213,7 @@ class VectorStore:
         response = await self._client.query_points(
             collection_name=self._collection,
             query=query_vector,
+            using=self.DENSE_VECTOR,
             limit=limit,
             score_threshold=score_threshold,
             with_payload=True,
@@ -192,7 +230,7 @@ class VectorStore:
         limit: int,
         score_threshold: float,
     ) -> list[RetrievedChunk]:
-        """Ask Qdrant Cloud to embed the query before vector search."""
+        """Run cloud hybrid retrieval followed by ColBERT reranking."""
 
         if not self._cloud_inference_available:
             raise CloudInferenceUnavailable
@@ -201,9 +239,21 @@ class VectorStore:
             await self.ensure_collection()
             response = await self._client.query_points(
                 collection_name=self._collection,
-                query=models.Document(text=query, model=self._embedding_model),
+                prefetch=[
+                    models.Prefetch(
+                        query=models.Document(text=query, model=self._dense_model),
+                        using=self.DENSE_VECTOR,
+                        limit=self._candidate_limit,
+                    ),
+                    models.Prefetch(
+                        query=models.Document(text=query, model=self._sparse_model),
+                        using=self.SPARSE_VECTOR,
+                        limit=self._candidate_limit,
+                    ),
+                ],
+                query=models.Document(text=query, model=self._reranker_model),
+                using=self.RERANK_VECTOR,
                 limit=limit,
-                score_threshold=score_threshold,
                 with_payload=True,
                 with_vectors=False,
             )
