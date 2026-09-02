@@ -11,14 +11,20 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 
-export function ChatWorkspace() {
+interface ChatWorkspaceProps {
+  sessionTitle?: string
+}
+
+export function ChatWorkspace({ sessionTitle }: ChatWorkspaceProps) {
   return (
     <section className="flex min-w-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger aria-label="Open chat sessions" />
           <Separator className="mt-2 mr-1 h-4" orientation="vertical" />
-          <h1 className="truncate text-sm font-semibold">AI Assistant</h1>
+          <h1 className="truncate text-sm font-semibold">
+            {sessionTitle ?? "AI Assistant"}
+          </h1>
         </div>
       </header>
 
