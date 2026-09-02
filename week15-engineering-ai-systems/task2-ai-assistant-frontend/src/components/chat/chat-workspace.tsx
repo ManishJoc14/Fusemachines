@@ -1,7 +1,7 @@
 import Image from "next/image"
 import { ArrowUp, Paperclip } from "lucide-react"
 
-import assistantLogo from "@/app/agent_logo.png"
+import assistantLogo from "@/app/icon1.png"
 import {
   InputGroup,
   InputGroupAddon,
@@ -17,7 +17,7 @@ export function ChatWorkspace() {
       <header className="flex h-14 shrink-0 items-center px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger aria-label="Open chat sessions" />
-          <Separator className="mr-1 h-4 mt-2" orientation="vertical" />
+          <Separator className="mt-2 mr-1 h-4" orientation="vertical" />
           <h1 className="truncate text-sm font-semibold">AI Assistant</h1>
         </div>
       </header>
