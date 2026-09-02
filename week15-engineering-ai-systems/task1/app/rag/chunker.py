@@ -23,7 +23,11 @@ class TextChunker:
         document_id: str,
         document_name: str,
     ) -> list[DocumentChunk]:
-        """Split text into overlapping chunks near readable boundaries."""
+        """Split text into overlapping chunks near readable boundaries.
+
+        For example, an overlap can repeat the phrase "programming language"
+        between two neighboring chunks so its meaning is not cut in half.
+        """
 
         chunks: list[DocumentChunk] = []
         start = 0
@@ -50,11 +54,6 @@ class TextChunker:
             start = max(start + 1, end - self._chunk_overlap)
 
         return chunks
-
-        # EXAMPLE:
-        # Chunk 0 = Python is a programming language.
-        # Chunk 1 = programming language. It is commonly used for backend development.
-        # Chunk 2 = backend development. FastAPI is a Python framework for building APIs.
 
     @staticmethod
     def _build_chunk(

@@ -79,10 +79,6 @@ class Settings(BaseSettings):
         if self.rag_chunk_overlap >= self.rag_chunk_size:
             raise ValueError("RAG_CHUNK_OVERLAP must be smaller than RAG_CHUNK_SIZE")
 
-        token = self.hf_token.get_secret_value() if self.hf_token else ""
-        if self.llm_backend is LLMBackend.HUGGINGFACE and not token.strip():
-            raise ValueError("HF_TOKEN is required when LLM_BACKEND=huggingface")
-
         return self
 
 

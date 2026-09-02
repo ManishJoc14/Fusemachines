@@ -1,0 +1,64 @@
+services:
+  api:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      VLLM_BASE_URL: http://vllm:8000/v1
+      DOCUMENTS_DIRECTORY: /app/data/documents
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/documents:/app/data/documents:ro
+      - huggingface_cache:/app/.cache/huggingface
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Start this optional service with: docker compose --profile local up --build
+  vllm:
+    image: vllm/vllm-openai:v0.28.0
+    profiles: ["local"]
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+    command:
+      - --model
+      - ${VLLM_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --max-model-len
+      - "4096"
+      - --gpu-memory-utilization
+      - "0.85"
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - hermes
+    ports:
+      - "8001:8000"
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  huggingface_cache:
