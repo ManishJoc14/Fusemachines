@@ -26,15 +26,22 @@ class VectorStore:
         await self._client.close()
 
     async def ensure_collection(self) -> None:
-        if await self._client.collection_exists(self._collection):
-            return
+        # Step 1: Create the vector collection on the first ingestion.
+        if not await self._client.collection_exists(self._collection):
+            await self._client.create_collection(
+                collection_name=self._collection,
+                vectors_config=models.VectorParams(
+                    size=self._dimension,
+                    distance=models.Distance.COSINE,
+                ),
+            )
 
-        await self._client.create_collection(
+        # Step 2: Index the field used to replace an existing document.
+        await self._client.create_payload_index(
             collection_name=self._collection,
-            vectors_config=models.VectorParams(
-                size=self._dimension,
-                distance=models.Distance.COSINE,
-            ),
+            field_name="document_id",
+            field_schema=models.PayloadSchemaType.KEYWORD,
+            wait=True,
         )
 
     async def replace_document(

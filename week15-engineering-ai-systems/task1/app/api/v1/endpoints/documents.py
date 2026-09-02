@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Annotated, BinaryIO
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.api.dependencies import get_ingestion_service
 from app.schemas.document import IngestionResult
@@ -52,7 +52,10 @@ def _upload_error(exc: ValueError) -> HTTPException:
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_document(
-    file: UploadFile,
+    file: Annotated[
+        UploadFile,
+        File(description="Markdown, text, or PDF document to ingest."),
+    ],
     service: Annotated[IngestionService, Depends(get_ingestion_service)],
 ) -> IngestionResult:
     """Temporarily save an upload, ingest it, and remove the copy."""
