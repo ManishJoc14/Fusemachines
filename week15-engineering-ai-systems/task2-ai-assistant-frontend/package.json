@@ -14,6 +14,7 @@
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "katex": "^0.18.5",
     "lucide-react": "^1.38.0",
     "marked": "^18.0.11",
     "mermaid": "^11.17.2",
@@ -23,8 +24,10 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "shadcn": "^4.19.1",
     "shiki": "^4.4.3",
     "tailwind-merge": "^3.6.0",

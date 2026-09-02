@@ -32,6 +32,8 @@ import {
 import { Loader } from "@/components/ui/loader"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { PromptSuggestion } from "@/components/ui/prompt-suggestion"
+
 import type {
   ChatMessage as ChatMessageType,
   MessageAttachment,
@@ -183,12 +185,56 @@ export function ChatWorkspace({
                 src={assistantLogo}
                 width={40}
               />
+
               <h2 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">
                 How can I help?
               </h2>
+
               <p className="mt-2 text-sm text-muted-foreground">
                 Ask a question or upload a document.
               </p>
+
+              <div className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
+                <PromptSuggestion
+                  disabled={isStreaming}
+                  onClick={() =>
+                    onSendMessage("Visualize how hybrid retrieval and reranking works")
+                  }
+                  size="sm"
+                >
+                  Visualize hybrid reranking
+                </PromptSuggestion>
+
+                <PromptSuggestion
+                  disabled={isStreaming}
+                  onClick={() =>
+                    onSendMessage("Tell me about recent Spiderman movie.")
+                  }
+                  size="sm"
+                >
+                  Recent Spiderman movie
+                </PromptSuggestion>
+
+                <PromptSuggestion
+                  disabled={isStreaming}
+                  onClick={() =>
+                    onSendMessage("What is the current weather in Kathmandu?")
+                  }
+                  size="sm"
+                >
+                  Weather in Kathmandu
+                </PromptSuggestion>
+                
+                <PromptSuggestion
+                  disabled={isStreaming}
+                  onClick={() =>
+                    onSendMessage("Calculate the cube root of 1367631.")
+                  }
+                  size="sm"
+                >
+                  Cube root of 1367631
+                </PromptSuggestion>
+              </div>
             </div>
           </div>
         ) : (
