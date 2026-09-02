@@ -14,7 +14,11 @@ from openai import (
     InternalServerError,
     RateLimitError,
 )
-from openai.types.chat import ChatCompletionMessage, ChatCompletionToolParam
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionMessage,
+    ChatCompletionToolParam,
+)
 from pydantic import BaseModel, ValidationError
 
 from app.core.config import LLMBackend, Settings
@@ -207,17 +211,51 @@ class LLMClient:
         response_model: type[BaseModel],
         tools: list[ChatCompletionToolParam] | None,
     ) -> ChatCompletionMessage:
-        completion = await self._client.chat.completions.create(
+        if tools:
+            completion = await self._request_with_tools(model, messages, tools)
+        else:
+            completion = await self._request_structured_output(
+                model,
+                messages,
+                response_model,
+            )
+
+        return completion.choices[0].message
+
+    async def _request_with_tools(
+        self,
+        model: str,
+        messages: list[ChatMessageParam],
+        tools: list[ChatCompletionToolParam],
+    ) -> ChatCompletion:
+        """Ask the model to either call a tool or continue without one."""
+
+        return await self._client.chat.completions.create(
             model=model,
             messages=cast(Any, messages),
             tools=tools,
-            tool_choice="auto" if tools else None,
-            response_format=None if tools else self._response_format(response_model),
+            tool_choice="auto",
             temperature=self._settings.llm_temperature,
             top_p=self._settings.llm_top_p,
             max_tokens=self._settings.llm_max_output_tokens,
         )
-        return completion.choices[0].message
+
+    async def _request_structured_output(
+        self,
+        model: str,
+        messages: list[ChatMessageParam],
+        response_model: type[BaseModel],
+    ) -> ChatCompletion:
+        """Ask for JSON without sending tool fields to the provider."""
+
+        return await self._client.chat.completions.create(
+            model=model,
+            messages=cast(Any, messages),
+            response_format=self._response_format(response_model),
+            temperature=self._settings.llm_temperature,
+            top_p=self._settings.llm_top_p,
+            max_tokens=self._settings.llm_max_output_tokens,
+        )
 
     def _parse_final_answer(
         self,
