@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any, Generic, TypeVar, cast
 
@@ -34,6 +35,14 @@ class LLMCompletion(Generic[ResponseModelT]):
     parsed: ResponseModelT | None
     model: str
     used_fallback: bool
+
+
+@dataclass(frozen=True, slots=True)
+class LLMTextChunk:
+    content: str
+    model: str
+    used_fallback: bool
+    is_complete: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +135,65 @@ class LLMClient:
             ) as exc:
                 errors.append(f"{candidate}: {exc}")
                 logger.warning("LLM attempt failed for model %s: %s", candidate, exc)
+
+        raise LLMError("All configured models failed: " + " | ".join(errors))
+
+    async def stream_text(
+        self,
+        messages: list[ChatMessageParam],
+        *,
+        model: str | None = None,
+    ) -> AsyncIterator[LLMTextChunk]:
+        """Stream plain text from the first available configured model."""
+
+        errors: list[str] = []
+
+        for candidate in self._candidate_models(model):
+            received_content = False
+
+            try:
+                stream = await self._client.chat.completions.create(
+                    model=candidate,
+                    messages=cast(Any, messages),
+                    temperature=self._settings.llm_temperature,
+                    top_p=self._settings.llm_top_p,
+                    max_tokens=self._settings.llm_max_output_tokens,
+                    stream=True,
+                )
+
+                async for chunk in stream:
+                    content = chunk.choices[0].delta.content
+                    if not content:
+                        continue
+
+                    received_content = True
+                    yield LLMTextChunk(
+                        content=content,
+                        model=candidate,
+                        used_fallback=candidate != self._models[0],
+                    )
+
+                yield LLMTextChunk(
+                    content="",
+                    model=candidate,
+                    used_fallback=candidate != self._models[0],
+                    is_complete=True,
+                )
+                return
+            except (
+                APIConnectionError,
+                APIStatusError,
+                APITimeoutError,
+                InternalServerError,
+                RateLimitError,
+            ) as exc:
+                if received_content:
+                    raise LLMError(
+                        f"Model stream interrupted after output began: {exc}"
+                    ) from exc
+
+                errors.append(f"{candidate}: {exc}")
+                logger.warning("LLM stream failed for model %s: %s", candidate, exc)
 
         raise LLMError("All configured models failed: " + " | ".join(errors))
 

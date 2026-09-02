@@ -1,10 +1,22 @@
 from __future__ import annotations
 
-from app.assistant.agent import AssistantAgent
+from collections.abc import AsyncIterator
+
+from app.assistant.agent import (
+    AgentCompleteEvent,
+    AgentDeltaEvent,
+    AgentToolEvent,
+    AssistantAgent,
+)
 from app.rag.retriever import Retriever
 from app.schemas.chat import (
     ChatRequest,
     ChatResponse,
+    ChatStreamComplete,
+    ChatStreamDelta,
+    ChatStreamEvent,
+    ChatStreamStatus,
+    ChatStreamTool,
     PipelineStats,
     SourceReference,
 )
@@ -26,22 +38,87 @@ class ChatService:
         4. Verify citations and build the API response.
         """
 
-        # Step 1: Retrieve evidence for the user's question.
-        retrieved_chunks = (
-            await self._retriever.retrieve(request.message) if request.use_rag else []
-        )
+        retrieved_chunks = await self._retrieve(request)
+        return await self._generate_response(request, retrieved_chunks)
 
-        # Step 2: Convert retrieved chunks into bounded prompt context.
+    async def stream(self, request: ChatRequest) -> AsyncIterator[ChatStreamEvent]:
+        """Stream pipeline progress followed by a validated assistant response."""
+
+        # Step 1: Tell the client when document retrieval begins.
+        if request.use_rag:
+            yield ChatStreamStatus(
+                stage="retrieving",
+                message="Searching relevant documents",
+            )
+        retrieved_chunks = await self._retrieve(request)
+
+        # Step 2: Stream tool activity and answer text from the agent.
+        yield ChatStreamStatus(
+            stage="generating",
+            message="Generating an answer",
+        )
         context = self._retriever.format_context(retrieved_chunks)
 
-        # Step 3: Generate a validated answer, executing tools when requested.
+        async for agent_event in self._agent.stream(
+            request.message,
+            history=request.history,
+            context=context,
+        ):
+            if isinstance(agent_event, AgentToolEvent):
+                yield ChatStreamTool(tool=agent_event.execution)
+                continue
+
+            if isinstance(agent_event, AgentDeltaEvent):
+                yield ChatStreamDelta(content=agent_event.content)
+                continue
+
+            if isinstance(agent_event, AgentCompleteEvent):
+                sources = self._build_sources(
+                    agent_event.metadata.cited_chunk_ids,
+                    retrieved_chunks,
+                )
+                response = ChatResponse(
+                    answer=agent_event.answer,
+                    confidence=agent_event.metadata.confidence,
+                    follow_up_questions=agent_event.metadata.follow_up_questions,
+                    sources=sources,
+                    tools_used=agent_event.tools_used,
+                    model=agent_event.model,
+                    used_fallback=agent_event.used_fallback,
+                    pipeline_stats=PipelineStats(
+                        retrieval_strategy=(
+                            "dense_cosine" if request.use_rag else "disabled"
+                        ),
+                        retrieved_chunks=len(retrieved_chunks),
+                        cited_chunks=len(sources),
+                        tool_executions=len(agent_event.tools_used),
+                    ),
+                )
+                yield ChatStreamComplete(response=response)
+
+    async def _retrieve(self, request: ChatRequest) -> list[RetrievedChunk]:
+        if not request.use_rag:
+            return []
+        return await self._retriever.retrieve(request.message)
+
+    async def _generate_response(
+        self,
+        request: ChatRequest,
+        retrieved_chunks: list[RetrievedChunk],
+    ) -> ChatResponse:
+        """Generate the final response from already retrieved document chunks."""
+
+        # Step 1: Convert retrieved chunks into bounded prompt context.
+        context = self._retriever.format_context(retrieved_chunks)
+
+        # Step 2: Generate a validated answer, executing tools when requested.
         agent_result = await self._agent.run(
             request.message,
             history=request.history,
             context=context,
         )
 
-        # Step 4: Keep only citations that came from our retrieval result.
+        # Step 3: Keep only citations that came from our retrieval result.
         sources = self._build_sources(
             agent_result.output.cited_chunk_ids,
             retrieved_chunks,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
 from openai.types.chat import ChatCompletionMessage
@@ -8,7 +9,12 @@ from openai.types.chat import ChatCompletionMessage
 from app.assistant.prompts import build_system_prompt
 from app.core.config import Settings
 from app.llm.client import ChatMessageParam, LLMClient, LLMError
-from app.schemas.chat import AssistantOutput, ChatMessage, ToolExecution
+from app.schemas.chat import (
+    AssistantMetadata,
+    AssistantOutput,
+    ChatMessage,
+    ToolExecution,
+)
 from app.tools.registry import ToolRegistry
 
 
@@ -18,6 +24,28 @@ class AgentResult:
     tools_used: list[ToolExecution]
     model: str
     used_fallback: bool
+
+
+@dataclass(frozen=True, slots=True)
+class AgentToolEvent:
+    execution: ToolExecution
+
+
+@dataclass(frozen=True, slots=True)
+class AgentDeltaEvent:
+    content: str
+
+
+@dataclass(frozen=True, slots=True)
+class AgentCompleteEvent:
+    answer: str
+    metadata: AssistantMetadata
+    tools_used: list[ToolExecution]
+    model: str
+    used_fallback: bool
+
+
+AgentStreamEvent = AgentToolEvent | AgentDeltaEvent | AgentCompleteEvent
 
 
 class AssistantAgent:
@@ -91,6 +119,103 @@ class AssistantAgent:
 
         raise LLMError("Maximum tool-call iterations reached")
 
+    async def stream(
+        self,
+        question: str,
+        *,
+        history: list[ChatMessage] | None = None,
+        context: str | None = None,
+    ) -> AsyncIterator[AgentStreamEvent]:
+        """Run tools first, then stream the final text answer as it is generated."""
+
+        messages = self._build_messages(question, history, context)
+        executions: list[ToolExecution] = []
+        active_model: str | None = None
+        used_fallback = False
+
+        for _ in range(self._max_iterations):
+            # Step 1: Ask the model whether it needs a tool.
+            completion = await self._llm.complete(
+                messages,
+                response_model=AssistantOutput,
+                tools=self._tools.schemas(),
+                model=active_model,
+            )
+            used_fallback = used_fallback or completion.used_fallback
+            if completion.used_fallback:
+                active_model = completion.model
+
+            # Step 2: Execute and emit each requested tool immediately.
+            if completion.message.tool_calls:
+                messages.append(completion.message.model_dump(exclude_none=True))
+
+                for tool_call in completion.message.tool_calls:
+                    if tool_call.type != "function":
+                        continue
+
+                    execution = await self._tools.execute(
+                        tool_call.function.name,
+                        tool_call.function.arguments,
+                    )
+                    executions.append(execution)
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": json.dumps(execution.model_dump()),
+                        }
+                    )
+                    yield AgentToolEvent(execution=execution)
+                continue
+
+            # Step 3: Stream the final natural-language answer from the provider.
+            answer_parts: list[str] = []
+            final_model = completion.model
+
+            async for chunk in self._llm.stream_text(messages, model=active_model):
+                final_model = chunk.model
+                used_fallback = used_fallback or chunk.used_fallback
+                if chunk.content:
+                    answer_parts.append(chunk.content)
+                    yield AgentDeltaEvent(content=chunk.content)
+
+            answer = "".join(answer_parts).strip()
+            if not answer:
+                raise LLMError("Model returned an empty streamed answer")
+
+            # Step 4: Validate metadata after the visible answer has finished.
+            metadata_messages = [
+                *messages,
+                {"role": "assistant", "content": answer},
+                {
+                    "role": "user",
+                    "content": (
+                        "Return only structured metadata for the answer above: "
+                        "cited chunk IDs, up to three follow-up questions, and "
+                        "confidence. Do not rewrite the answer."
+                    ),
+                },
+            ]
+            metadata_completion = await self._llm.complete(
+                metadata_messages,
+                response_model=AssistantMetadata,
+                model=final_model,
+            )
+            used_fallback = used_fallback or metadata_completion.used_fallback
+            if metadata_completion.parsed is None:
+                raise LLMError("Model did not return structured stream metadata")
+
+            yield AgentCompleteEvent(
+                answer=answer,
+                metadata=metadata_completion.parsed,
+                tools_used=executions,
+                model=metadata_completion.model,
+                used_fallback=used_fallback,
+            )
+            return
+
+        raise LLMError("Maximum tool-call iterations reached")
+
     @staticmethod
     def _build_messages(
         question: str,
@@ -113,6 +238,9 @@ class AssistantAgent:
         messages.append(assistant_message.model_dump(exclude_none=True))
 
         for tool_call in assistant_message.tool_calls or []:
+            if tool_call.type != "function":
+                continue
+
             execution = await self._tools.execute(
                 tool_call.function.name,
                 tool_call.function.arguments,

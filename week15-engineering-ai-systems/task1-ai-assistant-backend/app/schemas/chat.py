@@ -27,6 +27,16 @@ class AssistantOutput(BaseModel):
     confidence: Literal["low", "medium", "high"]
 
 
+class AssistantMetadata(BaseModel):
+    """Structured metadata generated after a streamed text answer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cited_chunk_ids: list[str]
+    follow_up_questions: list[str] = Field(max_length=3)
+    confidence: Literal["low", "medium", "high"]
+
+
 class SourceReference(BaseModel):
     chunk_id: str
     document_name: str
@@ -58,3 +68,38 @@ class ChatResponse(BaseModel):
     model: str
     used_fallback: bool
     pipeline_stats: PipelineStats
+
+
+class ChatStreamStatus(BaseModel):
+    type: Literal["status"] = "status"
+    stage: Literal["retrieving", "generating"]
+    message: str
+
+
+class ChatStreamTool(BaseModel):
+    type: Literal["tool"] = "tool"
+    tool: ToolExecution
+
+
+class ChatStreamDelta(BaseModel):
+    type: Literal["delta"] = "delta"
+    content: str
+
+
+class ChatStreamComplete(BaseModel):
+    type: Literal["complete"] = "complete"
+    response: ChatResponse
+
+
+class ChatStreamError(BaseModel):
+    type: Literal["error"] = "error"
+    message: str
+
+
+ChatStreamEvent = (
+    ChatStreamStatus
+    | ChatStreamTool
+    | ChatStreamDelta
+    | ChatStreamComplete
+    | ChatStreamError
+)
