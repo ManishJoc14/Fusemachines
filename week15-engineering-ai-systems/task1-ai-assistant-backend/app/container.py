@@ -40,7 +40,7 @@ class ApplicationContainer:
         # Step 3: Assemble the model and tool-calling pipeline.
         agent = AssistantAgent(
             self.llm_client,
-            create_default_tool_registry(),
+            create_default_tool_registry(settings),
             settings,
         )
 

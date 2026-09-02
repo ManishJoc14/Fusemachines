@@ -19,6 +19,7 @@ class RegisteredTool:
     description: str
     input_model: type[BaseModel]
     handler: ToolHandler
+    strict: bool = True
 
     def as_chat_tool(self) -> ChatCompletionToolParam:
         return {
@@ -27,7 +28,7 @@ class RegisteredTool:
                 "name": self.name,
                 "description": self.description,
                 "parameters": self.input_model.model_json_schema(),
-                "strict": True,
+                "strict": self.strict,
             },
         }
 

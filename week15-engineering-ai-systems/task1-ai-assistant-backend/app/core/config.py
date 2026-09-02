@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=60.0, gt=0.0)
     llm_max_tool_iterations: int = Field(default=5, ge=1, le=10)
 
+    monid_api_key: SecretStr | None = None
+    monid_base_url: AnyHttpUrl = AnyHttpUrl("https://api.monid.ai")
+    monid_timeout_seconds: float = Field(default=30.0, gt=0.0)
+
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     embedding_device: Literal["cpu", "cuda", "mps"] = "cpu"
     embedding_batch_size: int = Field(default=32, gt=0)
