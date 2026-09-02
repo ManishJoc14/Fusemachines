@@ -18,6 +18,9 @@ const fontMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Engineering AI Assistant",
   description: "Chat with documents and inspect every tool the assistant uses.",
+  appleWebApp: {
+    title: "AI Assistant",
+  },
 }
 
 export default function RootLayout({
