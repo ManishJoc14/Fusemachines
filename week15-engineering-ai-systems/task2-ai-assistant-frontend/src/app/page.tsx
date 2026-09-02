@@ -14,6 +14,7 @@ export default function Page() {
     selectSession,
     deleteSession,
     sendMessage,
+    stopGeneration,
   } = useChatSessions()
 
   return (
@@ -35,6 +36,7 @@ export default function Page() {
           }
           messages={activeSession?.messages ?? []}
           onSendMessage={sendMessage}
+          onStopGeneration={stopGeneration}
           sessionTitle={activeSession?.title}
         />
       </SidebarInset>

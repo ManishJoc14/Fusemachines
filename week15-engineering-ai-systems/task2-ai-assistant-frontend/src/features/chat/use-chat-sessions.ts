@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { streamChat } from "./api"
 import {
@@ -20,6 +20,7 @@ import type {
 
 export function useChatSessions() {
   const [state, setState] = useState<SessionState>(createEmptySessionState)
+  const activeRequest = useRef<AbortController | null>(null)
 
   useEffect(() => {
     // Local storage is only available after the page loads in the browser.
@@ -113,7 +114,10 @@ export function useChatSessions() {
     attachments: MessageAttachment[] = []
   ) {
     const cleanContent = content.trim()
-    if (!cleanContent) return
+    if (!cleanContent || activeRequest.current) return
+
+    const requestController = new AbortController()
+    activeRequest.current = requestController
 
     // Step 1: Build the user and pending assistant messages.
     const now = new Date().toISOString()
@@ -177,15 +181,29 @@ export function useChatSessions() {
           use_rag: session.useRag,
         },
         (event) =>
-          handleStreamEvent(updatedSession.id, assistantMessage.id, event)
+          handleStreamEvent(updatedSession.id, assistantMessage.id, event),
+        requestController.signal
       )
     } catch {
+      if (requestController.signal.aborted) {
+        markAssistantStopped(updatedSession.id, assistantMessage.id)
+        return
+      }
+
       markAssistantError(
         updatedSession.id,
         assistantMessage.id,
         "Could not reach the assistant. Please try again."
       )
+    } finally {
+      if (activeRequest.current === requestController) {
+        activeRequest.current = null
+      }
     }
+  }
+
+  function stopGeneration() {
+    activeRequest.current?.abort()
   }
 
   function handleStreamEvent(
@@ -260,6 +278,20 @@ export function useChatSessions() {
     )
   }
 
+  function markAssistantStopped(sessionId: string, messageId: string) {
+    updateAssistantMessage(
+      sessionId,
+      messageId,
+      (message) => ({
+        ...message,
+        content: message.content || "Response stopped.",
+        status: "complete",
+        activity: undefined,
+      }),
+      true
+    )
+  }
+
   function updateAssistantMessage(
     sessionId: string,
     messageId: string,
@@ -305,6 +337,7 @@ export function useChatSessions() {
     renameSession,
     deleteSession,
     sendMessage,
+    stopGeneration,
   }
 }
 

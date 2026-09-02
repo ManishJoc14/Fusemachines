@@ -9,6 +9,7 @@ import {
   FileText,
   FileUp,
   Paperclip,
+  Square,
 } from "lucide-react"
 
 import assistantLogo from "@/app/icon1.png"
@@ -46,6 +47,7 @@ interface ChatWorkspaceProps {
   isStreaming: boolean
   sessionTitle?: string
   onSendMessage: (message: string, attachments?: MessageAttachment[]) => void
+  onStopGeneration: () => void
 }
 
 export function ChatWorkspace({
@@ -53,6 +55,7 @@ export function ChatWorkspace({
   isStreaming,
   sessionTitle,
   onSendMessage,
+  onStopGeneration,
 }: ChatWorkspaceProps) {
   const [message, setMessage] = useState("")
   const [isUploading, setIsUploading] = useState(false)
@@ -198,7 +201,9 @@ export function ChatWorkspace({
                 <PromptSuggestion
                   disabled={isStreaming}
                   onClick={() =>
-                    onSendMessage("Visualize how hybrid retrieval and reranking works")
+                    onSendMessage(
+                      "Visualize how hybrid retrieval and reranking works"
+                    )
                   }
                   size="sm"
                 >
@@ -224,7 +229,7 @@ export function ChatWorkspace({
                 >
                   Weather in Kathmandu
                 </PromptSuggestion>
-                
+
                 <PromptSuggestion
                   disabled={isStreaming}
                   onClick={() =>
@@ -311,14 +316,25 @@ export function ChatWorkspace({
                     )}
                   </InputGroupButton>
                 </FileUploadTrigger>
-                <InputGroupButton
-                  aria-label="Send message"
-                  disabled={!message.trim() || isStreaming || isUploading}
-                  size="icon-sm"
-                  type="submit"
-                >
-                  <ArrowUp aria-hidden="true" />
-                </InputGroupButton>
+                {isStreaming ? (
+                  <InputGroupButton
+                    aria-label="Stop generating"
+                    onClick={onStopGeneration}
+                    size="icon-sm"
+                    type="button"
+                  >
+                    <Square aria-hidden="true" className="fill-current" />
+                  </InputGroupButton>
+                ) : (
+                  <InputGroupButton
+                    aria-label="Send message"
+                    disabled={!message.trim() || isUploading}
+                    size="icon-sm"
+                    type="submit"
+                  >
+                    <ArrowUp aria-hidden="true" />
+                  </InputGroupButton>
+                )}
               </InputGroupAddon>
             </InputGroup>
           </FileUpload>
