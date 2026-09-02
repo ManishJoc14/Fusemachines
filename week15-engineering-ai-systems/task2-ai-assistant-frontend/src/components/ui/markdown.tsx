@@ -1,9 +1,14 @@
 import { cn } from "@/lib/utils"
-import { marked } from "marked"
-import { memo, useId, useMemo } from "react"
+import { memo, useMemo } from "react"
 import ReactMarkdown, { Components } from "react-markdown"
+
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
+
+import "katex/dist/katex.min.css"
+
 import { CodeBlock, CodeBlockCode } from "./code-block"
 import { MermaidDiagram } from "./mermaid-diagram"
 
@@ -14,59 +19,110 @@ export type MarkdownProps = {
   components?: Partial<Components>
 }
 
-function parseMarkdownIntoBlocks(markdown: string): string[] {
-  const tokens = marked.lexer(markdown)
-  return tokens.map((token) => token.raw)
-}
-
 function extractLanguage(className?: string): string {
   if (!className) return "plaintext"
+
   const match = className.match(/language-(\w+)/)
   return match ? match[1] : "plaintext"
 }
 
+function normalizeMathDelimiters(markdown: string): string {
+  const replacements: Record<string, string> = {
+    "\\(": "$",
+    "\\)": "$",
+    "\\[": "$$",
+    "\\]": "$$",
+  }
+  let normalized = ""
+  let position = 0
+
+  while (position < markdown.length) {
+    const character = markdown[position]
+
+    // Preserve inline and fenced code exactly as the model produced it.
+    if (character === "`" || character === "~") {
+      let delimiterEnd = position + 1
+      while (markdown[delimiterEnd] === character) delimiterEnd += 1
+
+      const delimiter = markdown.slice(position, delimiterEnd)
+      const isCodeDelimiter = character === "`" || delimiter.length >= 3
+      const closingPosition = isCodeDelimiter
+        ? markdown.indexOf(delimiter, delimiterEnd)
+        : -1
+
+      if (closingPosition !== -1) {
+        const codeEnd = closingPosition + delimiter.length
+        normalized += markdown.slice(position, codeEnd)
+        position = codeEnd
+        continue
+      }
+    }
+
+    const latexDelimiter = markdown.slice(position, position + 2)
+    const replacement = replacements[latexDelimiter]
+    if (replacement) {
+      normalized += replacement
+      position += 2
+      continue
+    }
+
+    normalized += character
+    position += 1
+  }
+
+  return normalized
+}
+
 const INITIAL_COMPONENTS: Partial<Components> = {
-  h1: function HeadingOne({ children }) {
+  h1({ children }) {
     return (
       <h1 className="mt-8 mb-3 text-2xl font-semibold tracking-tight first:mt-0">
         {children}
       </h1>
     )
   },
-  h2: function HeadingTwo({ children }) {
+
+  h2({ children }) {
     return (
       <h2 className="mt-7 mb-3 text-xl font-semibold tracking-tight first:mt-0">
         {children}
       </h2>
     )
   },
-  h3: function HeadingThree({ children }) {
+
+  h3({ children }) {
     return (
       <h3 className="mt-6 mb-2 text-base font-semibold first:mt-0">
         {children}
       </h3>
     )
   },
-  p: function Paragraph({ children }) {
+
+  p({ children }) {
     return <p className="my-3 leading-7 first:mt-0 last:mb-0">{children}</p>
   },
-  ul: function UnorderedList({ children }) {
+
+  ul({ children }) {
     return <ul className="my-3 list-disc space-y-1.5 pl-6">{children}</ul>
   },
-  ol: function OrderedList({ children }) {
+
+  ol({ children }) {
     return <ol className="my-3 list-decimal space-y-1.5 pl-6">{children}</ol>
   },
-  li: function ListItem({ children }) {
+
+  li({ children }) {
     return <li className="pl-1 leading-7">{children}</li>
   },
-  blockquote: function Blockquote({ children }) {
+
+  blockquote({ children }) {
     return (
       <blockquote className="my-4 border-l-2 pl-4 text-muted-foreground">
         {children}
       </blockquote>
     )
   },
-  table: function Table({ children }) {
+
+  table({ children }) {
     return (
       <div className="my-5 max-w-full overflow-x-auto rounded-lg border">
         <table className="w-full min-w-max border-collapse text-left text-sm">
@@ -75,20 +131,24 @@ const INITIAL_COMPONENTS: Partial<Components> = {
       </div>
     )
   },
-  th: function TableHeading({ children }) {
+
+  th({ children }) {
     return (
       <th className="border-b bg-muted/60 px-3 py-2.5 font-semibold">
         {children}
       </th>
     )
   },
-  td: function TableCell({ children }) {
+
+  td({ children }) {
     return <td className="border-b px-3 py-2.5 align-top">{children}</td>
   },
-  hr: function HorizontalRule() {
+
+  hr() {
     return <hr className="my-6" />
   },
-  a: function Link({ children, href }) {
+
+  a({ children, href }) {
     return (
       <a
         className="font-medium underline underline-offset-4"
@@ -100,7 +160,8 @@ const INITIAL_COMPONENTS: Partial<Components> = {
       </a>
     )
   },
-  code: function CodeComponent({ className, children, ...props }) {
+
+  code({ className, children, ...props }) {
     const isInline =
       !props.node?.position?.start.line ||
       props.node?.position?.start.line === props.node?.position?.end.line
@@ -112,7 +173,6 @@ const INITIAL_COMPONENTS: Partial<Components> = {
             "rounded-sm bg-primary-foreground px-1 font-mono text-sm",
             className
           )}
-          {...props}
         >
           {children}
         </span>
@@ -127,58 +187,40 @@ const INITIAL_COMPONENTS: Partial<Components> = {
 
     return (
       <CodeBlock className={className}>
-        <CodeBlockCode code={children as string} language={language} />
+        <CodeBlockCode code={String(children)} language={language} />
       </CodeBlock>
     )
   },
-  pre: function PreComponent({ children }) {
+
+  pre({ children }) {
     return <>{children}</>
   },
 }
 
-const MemoizedMarkdownBlock = memo(
-  function MarkdownBlock({
-    content,
-    components = INITIAL_COMPONENTS,
-  }: {
-    content: string
-    components?: Partial<Components>
-  }) {
-    return (
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        components={components}
-      >
-        {content}
-      </ReactMarkdown>
-    )
-  },
-  function propsAreEqual(prevProps, nextProps) {
-    return prevProps.content === nextProps.content
-  }
-)
-
-MemoizedMarkdownBlock.displayName = "MemoizedMarkdownBlock"
-
 function MarkdownComponent({
   children,
-  id,
   className,
   components = INITIAL_COMPONENTS,
 }: MarkdownProps) {
-  const generatedId = useId()
-  const blockId = id ?? generatedId
-  const blocks = useMemo(() => parseMarkdownIntoBlocks(children), [children])
+  const normalizedMarkdown = useMemo(
+    () => normalizeMathDelimiters(children),
+    [children]
+  )
 
   return (
-    <div className={className}>
-      {blocks.map((block, index) => (
-        <MemoizedMarkdownBlock
-          key={`${blockId}-block-${index}`}
-          content={block}
-          components={components}
-        />
-      ))}
+    <div
+      className={cn(
+        "[&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:py-2",
+        className
+      )}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={components}
+      >
+        {normalizedMarkdown}
+      </ReactMarkdown>
     </div>
   )
 }
