@@ -40,16 +40,16 @@ class Retriever:
 
     @staticmethod
     def format_context(chunks: list[RetrievedChunk]) -> str | None:
-        """Format evidence with chunk IDs that the model can cite."""
+        """Number retrieved evidence while retaining IDs for validation."""
 
         if not chunks:
             return None
 
-        sections = [
-            (
-                f"[chunk_id={chunk.chunk_id} document={chunk.document_name}]\n"
-                f"{chunk.text}"
+        sections = []
+        for source_number, chunk in enumerate(chunks, start=1):
+            sections.append(
+                f"[source={source_number} chunk_id={chunk.chunk_id} "
+                f"document={chunk.document_name}]\n{chunk.text}"
             )
-            for chunk in chunks
-        ]
+
         return "\n\n".join(sections)

@@ -78,7 +78,7 @@ class ChatService:
                     retrieved_chunks,
                 )
                 response = ChatResponse(
-                    answer=agent_event.answer,
+                    answer=self._replace_chunk_ids(agent_event.answer, sources),
                     confidence=agent_event.metadata.confidence,
                     follow_up_questions=agent_event.metadata.follow_up_questions,
                     sources=sources,
@@ -125,7 +125,7 @@ class ChatService:
         )
 
         return ChatResponse(
-            answer=agent_result.output.answer,
+            answer=self._replace_chunk_ids(agent_result.output.answer, sources),
             confidence=agent_result.output.confidence,
             follow_up_questions=agent_result.output.follow_up_questions,
             sources=sources,
@@ -147,30 +147,39 @@ class ChatService:
     ) -> list[SourceReference]:
         """Discard invented and duplicate chunk IDs before returning citations."""
 
-        chunks_by_id = {chunk.chunk_id: chunk for chunk in retrieved_chunks}
+        chunks_by_id = {
+            chunk.chunk_id: (source_number, chunk)
+            for source_number, chunk in enumerate(retrieved_chunks, start=1)
+        }
         sources: list[SourceReference] = []
         seen_ids: set[str] = set()
 
         for chunk_id in cited_chunk_ids:
-            chunk = chunks_by_id.get(chunk_id)
-            if chunk is None or chunk_id in seen_ids:
+            source = chunks_by_id.get(chunk_id)
+            if source is None or chunk_id in seen_ids:
                 continue
 
+            citation_number, chunk = source
             seen_ids.add(chunk_id)
             sources.append(
                 SourceReference(
+                    citation_number=citation_number,
                     chunk_id=chunk.chunk_id,
                     document_name=chunk.document_name,
                     chunk_index=chunk.chunk_index,
                     score=chunk.score,
-                    text_preview=ChatService._preview(chunk.text),
+                    text=chunk.text,
                 )
             )
 
         return sources
 
     @staticmethod
-    def _preview(text: str, max_characters: int = 200) -> str:
-        if len(text) <= max_characters:
-            return text
-        return text[:max_characters].rstrip() + "..."
+    def _replace_chunk_ids(answer: str, sources: list[SourceReference]) -> str:
+        """Replace any model-exposed internal IDs with readable source numbers."""
+
+        for source in sources:
+            citation = f"[{source.citation_number}]"
+            answer = answer.replace(f"【{source.chunk_id}】", citation)
+            answer = answer.replace(f"[{source.chunk_id}]", citation)
+        return answer

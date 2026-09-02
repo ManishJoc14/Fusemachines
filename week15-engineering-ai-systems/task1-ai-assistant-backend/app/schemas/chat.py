@@ -38,11 +38,12 @@ class AssistantMetadata(BaseModel):
 
 
 class SourceReference(BaseModel):
+    citation_number: int
     chunk_id: str
     document_name: str
     chunk_index: int
     score: float
-    text_preview: str
+    text: str
 
 
 class ToolExecution(BaseModel):
