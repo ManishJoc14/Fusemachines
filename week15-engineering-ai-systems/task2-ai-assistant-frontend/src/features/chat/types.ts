@@ -46,6 +46,29 @@ export interface ChatResponse {
   pipeline_stats: PipelineStats
 }
 
+export type ChatStreamEvent =
+  | {
+      type: "status"
+      stage: "retrieving" | "generating"
+      message: string
+    }
+  | {
+      type: "tool"
+      tool: ToolExecution
+    }
+  | {
+      type: "delta"
+      content: string
+    }
+  | {
+      type: "complete"
+      response: ChatResponse
+    }
+  | {
+      type: "error"
+      message: string
+    }
+
 interface BaseMessage {
   id: string
   content: string
