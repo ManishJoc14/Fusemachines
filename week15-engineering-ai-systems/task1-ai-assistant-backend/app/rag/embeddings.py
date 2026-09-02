@@ -21,13 +21,17 @@ class EmbeddingService:
         self._batch_size = batch_size
         self._expected_dimension = expected_dimension
         self._model: SentenceTransformer | None = None
+        self._encode_lock = asyncio.Lock()
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """Encode a batch on a worker thread and return plain Python vectors."""
 
         if not texts:
             return []
-        return await asyncio.to_thread(self._encode, texts)
+
+        # The fallback model is shared, so local encoding runs one batch at a time.
+        async with self._encode_lock:
+            return await asyncio.to_thread(self._encode, texts)
 
     async def embed_query(self, text: str) -> list[float]:
         vectors = await self.embed_documents([text])

@@ -52,6 +52,7 @@ class ApplicationContainer:
             embeddings,
             self.vector_store,
             max_upload_size_mb=settings.max_upload_size_mb,
+            max_batch_files=settings.max_batch_upload_files,
         )
 
     async def close(self) -> None:

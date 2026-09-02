@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -24,3 +26,17 @@ class IngestionResult(BaseModel):
     document_name: str
     character_count: int
     chunk_count: int
+
+
+class DocumentUploadResult(BaseModel):
+    document_name: str
+    status: Literal["success", "error"]
+    ingestion: IngestionResult | None = None
+    error: str | None = None
+
+
+class BatchIngestionResult(BaseModel):
+    total_files: int
+    successful_files: int
+    failed_files: int
+    files: list[DocumentUploadResult]

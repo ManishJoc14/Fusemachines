@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.rag.embeddings import EmbeddingService
-from app.rag.vector_store import VectorStore
+from app.rag.vector_store import CloudInferenceUnavailable, VectorStore
 from app.schemas.document import RetrievedChunk
 
 
@@ -22,15 +22,21 @@ class Retriever:
     async def retrieve(self, query: str) -> list[RetrievedChunk]:
         """Embed a question and retrieve its nearest document chunks."""
 
-        # Step 1: Represent the question in the same vector space as documents.
-        query_vector = await self._embeddings.embed_query(query)
-
-        # Step 2: Apply the configured result limit and relevance threshold.
-        return await self._vector_store.search(
-            query_vector,
-            limit=self._top_k,
-            score_threshold=self._score_threshold,
-        )
+        # Step 1: Prefer the managed model used during cloud ingestion.
+        try:
+            return await self._vector_store.search_text(
+                query,
+                limit=self._top_k,
+                score_threshold=self._score_threshold,
+            )
+        except CloudInferenceUnavailable:
+            # Step 2: Fall back to the equivalent local embedding model.
+            query_vector = await self._embeddings.embed_query(query)
+            return await self._vector_store.search(
+                query_vector,
+                limit=self._top_k,
+                score_threshold=self._score_threshold,
+            )
 
     @staticmethod
     def format_context(chunks: list[RetrievedChunk]) -> str | None:

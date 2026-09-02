@@ -9,11 +9,16 @@ from typing import Annotated, BinaryIO
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.api.dependencies import get_ingestion_service
-from app.schemas.document import IngestionResult
+from app.schemas.document import (
+    BatchIngestionResult,
+    DocumentUploadResult,
+    IngestionResult,
+)
 from app.services.ingestion import IngestionService
 
 router = APIRouter()
 COPY_BUFFER_SIZE = 1024 * 1024
+BATCH_CONCURRENCY = 3
 
 
 def _copy_upload(source: BinaryIO, destination: Path, max_bytes: int) -> None:
@@ -37,7 +42,7 @@ async def _save_upload(file: UploadFile, destination: Path, max_bytes: int) -> N
     await asyncio.to_thread(_copy_upload, file.file, destination, max_bytes)
 
 
-def _upload_error(exc: ValueError) -> HTTPException:
+def _upload_error(exc: ValueError | UnicodeError) -> HTTPException:
     status_code = (
         status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
         if "size limit" in str(exc)
@@ -58,19 +63,89 @@ async def upload_document(
     ],
     service: Annotated[IngestionService, Depends(get_ingestion_service)],
 ) -> IngestionResult:
-    """Temporarily save an upload, ingest it, and remove the copy."""
+    """Ingest one uploaded document."""
 
-    # Step 1: Sanitize the display name and allocate a temporary file.
+    try:
+        return await _ingest_upload(file, service)
+    except (ValueError, UnicodeError) as exc:
+        raise _upload_error(exc) from exc
+
+
+@router.post(
+    "/documents/batch",
+    response_model=BatchIngestionResult,
+    status_code=status.HTTP_200_OK,
+)
+async def upload_documents(
+    files: Annotated[
+        list[UploadFile],
+        File(description="Markdown, text, or PDF documents to ingest."),
+    ],
+    service: Annotated[IngestionService, Depends(get_ingestion_service)],
+) -> BatchIngestionResult:
+    """Ingest several documents and report each file independently."""
+
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one document is required",
+        )
+
+    if len(files) > service.max_batch_files:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"A batch can contain at most {service.max_batch_files} files",
+        )
+
+    # Bound parallel work to protect memory and the external vector service.
+    semaphore = asyncio.Semaphore(BATCH_CONCURRENCY)
+
+    async def ingest_one(file: UploadFile) -> DocumentUploadResult:
+        document_name = Path(file.filename or "document.txt").name
+
+        async with semaphore:
+            try:
+                ingestion = await _ingest_upload(file, service)
+                return DocumentUploadResult(
+                    document_name=document_name,
+                    status="success",
+                    ingestion=ingestion,
+                )
+            except (ValueError, UnicodeError) as exc:
+                return DocumentUploadResult(
+                    document_name=document_name,
+                    status="error",
+                    error=str(exc),
+                )
+
+    file_results = list(await asyncio.gather(*(ingest_one(file) for file in files)))
+
+    successful_files = sum(result.status == "success" for result in file_results)
+
+    return BatchIngestionResult(
+        total_files=len(file_results),
+        successful_files=successful_files,
+        failed_files=len(file_results) - successful_files,
+        files=file_results,
+    )
+
+
+async def _ingest_upload(
+    file: UploadFile,
+    service: IngestionService,
+) -> IngestionResult:
+    """Save, ingest, and clean up one uploaded file."""
+
     safe_name = Path(file.filename or "document.txt").name
     temporary_path = _create_temporary_path(safe_name)
 
     try:
-        # Step 2: Copy with a hard limit, then run the ingestion pipeline.
+        # Step 1: Copy the upload without loading the entire file into memory.
         await _save_upload(file, temporary_path, service.max_upload_bytes)
+
+        # Step 2: Load, chunk, embed, and store the temporary document.
         return await service.ingest(temporary_path, document_name=safe_name)
-    except ValueError as exc:
-        raise _upload_error(exc) from exc
     finally:
-        # Step 3: Clean temporary resources on both success and failure.
+        # Step 3: Always close and remove temporary resources.
         await file.close()
         await asyncio.to_thread(temporary_path.unlink, missing_ok=True)

@@ -65,6 +65,7 @@ def build_ingestion_service(
         embeddings,
         vector_store,
         max_upload_size_mb=settings.max_upload_size_mb,
+        max_batch_files=settings.max_batch_upload_files,
     )
     return service, vector_store
 

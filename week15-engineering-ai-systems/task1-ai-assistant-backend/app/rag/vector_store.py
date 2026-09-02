@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+
 from qdrant_client import AsyncQdrantClient, models
 
 from app.core.config import Settings
 from app.schemas.document import DocumentChunk, RetrievedChunk
+
+logger = logging.getLogger(__name__)
+
+
+class CloudInferenceUnavailable(RuntimeError):
+    """Raised when Qdrant cannot embed text in the cloud."""
 
 
 class VectorStore:
@@ -18,14 +27,34 @@ class VectorStore:
         self._client = AsyncQdrantClient(
             url=str(settings.qdrant_url),
             api_key=api_key or None,
+            cloud_inference=True,
         )
         self._collection = settings.qdrant_collection
         self._dimension = settings.embedding_dimension
+        self._embedding_model = settings.embedding_model
+        self._cloud_inference_available = True
+        self._collection_ready = False
+        self._collection_lock = asyncio.Lock()
+
+    @property
+    def cloud_inference_available(self) -> bool:
+        return self._cloud_inference_available
 
     async def close(self) -> None:
         await self._client.close()
 
     async def ensure_collection(self) -> None:
+        if self._collection_ready:
+            return
+
+        async with self._collection_lock:
+            if self._collection_ready:
+                return
+
+            await self._create_collection_if_needed()
+            self._collection_ready = True
+
+    async def _create_collection_if_needed(self) -> None:
         # Step 1: Create the vector collection on the first ingestion.
         if not await self._client.collection_exists(self._collection):
             await self._client.create_collection(
@@ -43,6 +72,35 @@ class VectorStore:
             field_schema=models.PayloadSchemaType.KEYWORD,
             wait=True,
         )
+
+    async def replace_document_from_text(
+        self,
+        document_id: str,
+        chunks: list[DocumentChunk],
+    ) -> None:
+        """Ask Qdrant Cloud to embed and store document chunks."""
+
+        if not self._cloud_inference_available:
+            raise CloudInferenceUnavailable
+
+        try:
+            await self.ensure_collection()
+            await self._delete_document(document_id)
+            points = [
+                models.PointStruct(
+                    id=chunk.chunk_id,
+                    vector=models.Document(
+                        text=chunk.text,
+                        model=self._embedding_model,
+                    ),
+                    payload=chunk.model_dump(),
+                )
+                for chunk in chunks
+            ]
+            await self._upsert_batches(points)
+        except Exception as exc:
+            self._disable_cloud_inference(exc)
+            raise CloudInferenceUnavailable from exc
 
     async def replace_document(
         self,
@@ -126,6 +184,41 @@ class VectorStore:
 
         # Step 2: Convert database points back into domain schemas.
         return [self._to_retrieved_chunk(point) for point in response.points]
+
+    async def search_text(
+        self,
+        query: str,
+        *,
+        limit: int,
+        score_threshold: float,
+    ) -> list[RetrievedChunk]:
+        """Ask Qdrant Cloud to embed the query before vector search."""
+
+        if not self._cloud_inference_available:
+            raise CloudInferenceUnavailable
+
+        try:
+            await self.ensure_collection()
+            response = await self._client.query_points(
+                collection_name=self._collection,
+                query=models.Document(text=query, model=self._embedding_model),
+                limit=limit,
+                score_threshold=score_threshold,
+                with_payload=True,
+                with_vectors=False,
+            )
+            return [self._to_retrieved_chunk(point) for point in response.points]
+        except Exception as exc:
+            self._disable_cloud_inference(exc)
+            raise CloudInferenceUnavailable from exc
+
+    def _disable_cloud_inference(self, exc: Exception) -> None:
+        if self._cloud_inference_available:
+            logger.warning(
+                "Qdrant Cloud Inference unavailable; using local embeddings: %s",
+                exc,
+            )
+        self._cloud_inference_available = False
 
     @staticmethod
     def _to_retrieved_chunk(point: models.ScoredPoint) -> RetrievedChunk:
