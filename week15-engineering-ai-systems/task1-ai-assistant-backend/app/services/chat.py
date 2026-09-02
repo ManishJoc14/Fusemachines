@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 
 from app.assistant.agent import (
@@ -78,7 +79,7 @@ class ChatService:
                     retrieved_chunks,
                 )
                 response = ChatResponse(
-                    answer=self._replace_chunk_ids(agent_event.answer, sources),
+                    answer=self._format_citations(agent_event.answer, sources),
                     confidence=agent_event.metadata.confidence,
                     follow_up_questions=agent_event.metadata.follow_up_questions,
                     sources=sources,
@@ -125,7 +126,7 @@ class ChatService:
         )
 
         return ChatResponse(
-            answer=self._replace_chunk_ids(agent_result.output.answer, sources),
+            answer=self._format_citations(agent_result.output.answer, sources),
             confidence=agent_result.output.confidence,
             follow_up_questions=agent_result.output.follow_up_questions,
             sources=sources,
@@ -175,11 +176,38 @@ class ChatService:
         return sources
 
     @staticmethod
-    def _replace_chunk_ids(answer: str, sources: list[SourceReference]) -> str:
-        """Replace any model-exposed internal IDs with readable source numbers."""
+    def _format_citations(answer: str, sources: list[SourceReference]) -> str:
+        """Convert provider citation variations into compact inline numbers."""
 
+        # Step 1: Replace internal IDs if the model exposes them.
         for source in sources:
             citation = f"[{source.citation_number}]"
             answer = answer.replace(f"【{source.chunk_id}】", citation)
             answer = answer.replace(f"[{source.chunk_id}]", citation)
+
+        # Step 2: Convert verbose source lines such as
+        # "Source: document chunks 2 and 4." into "[2][4]".
+        available_numbers = {source.citation_number for source in sources}
+
+        def replace_source_line(match: re.Match[str]) -> str:
+            mentioned_numbers = [
+                int(number) for number in re.findall(r"\d+", match.group(1))
+            ]
+            citations = [
+                f"[{number}]"
+                for number in mentioned_numbers
+                if number in available_numbers
+            ]
+            return " " + "".join(citations) if citations else ""
+
+        answer = re.sub(
+            r"\\?\s*\n?\s*\*{0,2}Source:\s*document\s+chunks?\s+"
+            r"([\d,\sand]+)\.?\*{0,2}",
+            replace_source_line,
+            answer,
+            flags=re.IGNORECASE,
+        )
+
+        # Step 3: Remove model-generated Markdown hard-break escapes.
+        answer = answer.replace("\\\n", "\n")
         return answer

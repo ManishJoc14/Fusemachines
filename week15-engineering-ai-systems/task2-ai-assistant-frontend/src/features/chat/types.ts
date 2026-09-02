@@ -77,8 +77,15 @@ interface BaseMessage {
   createdAt: string
 }
 
+export interface MessageAttachment {
+  id: string
+  name: string
+  chunkCount?: number
+}
+
 export interface UserMessage extends BaseMessage {
   role: "user"
+  attachments?: MessageAttachment[]
 }
 
 export interface AssistantMessage extends BaseMessage {
@@ -87,6 +94,7 @@ export interface AssistantMessage extends BaseMessage {
   activity?: string
   activities?: string[]
   confidence?: Confidence
+  followUpQuestions?: string[]
   sources: SourceReference[]
   tools: ToolExecution[]
   model?: string

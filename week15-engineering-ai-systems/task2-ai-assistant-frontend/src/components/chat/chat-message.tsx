@@ -17,6 +17,7 @@ import {
   MessageActions,
   MessageContent,
 } from "@/components/ui/message"
+import { PromptSuggestion } from "@/components/ui/prompt-suggestion"
 import {
   Steps,
   StepsContent,
@@ -27,22 +28,39 @@ import { Tool } from "@/components/ui/tool"
 import type {
   AssistantMessage,
   ChatMessage as ChatMessageType,
+  MessageAttachment,
   SourceReference,
   ToolExecution,
 } from "@/features/chat/types"
 
 interface ChatMessageProps {
   message: ChatMessageType
+  suggestionsDisabled?: boolean
+  onSuggestionSelect: (suggestion: string) => void
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  suggestionsDisabled = false,
+  onSuggestionSelect,
+}: ChatMessageProps) {
   if (message.role === "user") {
     return (
       <Message className="justify-end">
         <div className="flex max-w-[85%] flex-col items-end">
-          <MessageContent className="max-w-full rounded-3xl bg-muted px-4 py-2.5 text-sm whitespace-pre-wrap">
-            {message.content}
-          </MessageContent>
+          <div className="max-w-full rounded-3xl bg-muted px-3 py-2.5 text-sm break-words text-foreground">
+            {message.attachments?.length ? (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {message.attachments.map((attachment) => (
+                  <MessageAttachmentCard
+                    attachment={attachment}
+                    key={attachment.id}
+                  />
+                ))}
+              </div>
+            ) : null}
+            <p className="px-1 whitespace-pre-wrap">{message.content}</p>
+          </div>
           <MessageActions className="mt-1">
             <CopyMessageButton content={message.content} />
           </MessageActions>
@@ -74,8 +92,49 @@ export function ChatMessage({ message }: ChatMessageProps) {
             <CopyMessageButton content={message.content} />
           </MessageActions>
         ) : null}
+
+        {message.status === "complete" && message.followUpQuestions?.length ? (
+          <div
+            aria-label="Suggested follow-up questions"
+            className="mt-3 flex flex-wrap gap-2"
+          >
+            {message.followUpQuestions.map((question) => (
+              <PromptSuggestion
+                className="h-auto min-h-9 max-w-full justify-start py-2 text-left whitespace-normal"
+                disabled={suggestionsDisabled}
+                key={question}
+                onClick={() => onSuggestionSelect(question)}
+                size="sm"
+              >
+                {question}
+              </PromptSuggestion>
+            ))}
+          </div>
+        ) : null}
       </div>
     </Message>
+  )
+}
+
+function MessageAttachmentCard({
+  attachment,
+}: {
+  attachment: MessageAttachment
+}) {
+  return (
+    <div className="flex max-w-64 min-w-0 items-center gap-2 rounded-xl border bg-background/70 px-2.5 py-2">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+        <FileText aria-hidden="true" className="size-4" />
+      </span>
+      <span className="min-w-0 text-left">
+        <span className="block truncate font-medium">{attachment.name}</span>
+        {attachment.chunkCount ? (
+          <span className="block text-xs text-muted-foreground">
+            {attachment.chunkCount} passages indexed
+          </span>
+        ) : null}
+      </span>
+    </div>
   )
 }
 

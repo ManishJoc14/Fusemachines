@@ -1,8 +1,18 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import React, { useEffect, useState } from "react"
+import { Check, Copy } from "lucide-react"
+import { useTheme } from "next-themes"
 import { codeToHtml } from "shiki"
+
+import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 
 export type CodeBlockProps = {
   children?: React.ReactNode
@@ -14,7 +24,7 @@ function CodeBlock({ children, className, ...props }: CodeBlockProps) {
     <div
       className={cn(
         "not-prose flex w-full flex-col overflow-clip border",
-        "border-border bg-card text-card-foreground rounded-xl",
+        "rounded-xl border-border bg-card text-card-foreground",
         className
       )}
       {...props}
@@ -34,43 +44,100 @@ export type CodeBlockCodeProps = {
 function CodeBlockCode({
   code,
   language = "tsx",
-  theme = "github-light",
+  theme,
   className,
   ...props
 }: CodeBlockCodeProps) {
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
+  const { resolvedTheme } = useTheme()
+  const syntaxTheme =
+    theme ?? (resolvedTheme === "dark" ? "github-dark" : "github-light")
 
   useEffect(() => {
+    let cancelled = false
+
     async function highlight() {
       if (!code) {
-        setHighlightedHtml("<pre><code></code></pre>")
+        if (!cancelled) setHighlightedHtml("<pre><code></code></pre>")
         return
       }
 
-      const html = await codeToHtml(code, { lang: language, theme })
-      setHighlightedHtml(html)
+      const html = await codeToHtml(code, {
+        lang: language,
+        theme: syntaxTheme,
+      })
+      if (!cancelled) setHighlightedHtml(html)
     }
+
     highlight()
-  }, [code, language, theme])
+
+    return () => {
+      cancelled = true
+    }
+  }, [code, language, syntaxTheme])
 
   const classNames = cn(
     "w-full overflow-x-auto text-[13px] [&>pre]:px-4 [&>pre]:py-4",
     className
   )
 
-  // SSR fallback: render plain code if not hydrated yet
-  return highlightedHtml ? (
-    <div
-      className={classNames}
-      dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-      {...props}
-    />
-  ) : (
-    <div className={classNames} {...props}>
-      <pre>
-        <code>{code}</code>
-      </pre>
+  return (
+    <div {...props}>
+      <div className="flex h-10 items-center justify-between border-b px-3">
+        <span className="font-mono text-xs text-muted-foreground">
+          {language}
+        </span>
+        <CopyCodeButton code={code} />
+      </div>
+
+      {highlightedHtml ? (
+        <div
+          className={classNames}
+          dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+        />
+      ) : (
+        <div className={classNames}>
+          <pre>
+            <code>{code}</code>
+          </pre>
+        </div>
+      )}
     </div>
+  )
+}
+
+function CopyCodeButton({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+
+  async function copyCode() {
+    await navigator.clipboard.writeText(code)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 2000)
+  }
+
+  const label = copied ? "Copied" : "Copy code"
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            aria-label={label}
+            className="size-7"
+            onClick={copyCode}
+            size="icon-xs"
+            variant="ghost"
+          >
+            {copied ? (
+              <Check aria-hidden="true" className="size-3.5" />
+            ) : (
+              <Copy aria-hidden="true" className="size-3.5" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 

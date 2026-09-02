@@ -12,6 +12,7 @@ import {
 import type {
   AssistantMessage,
   ChatHistoryMessage,
+  MessageAttachment,
   ChatSession,
   ChatStreamEvent,
   UserMessage,
@@ -107,7 +108,10 @@ export function useChatSessions() {
     saveSessionState(updatedState)
   }
 
-  async function sendMessage(content: string) {
+  async function sendMessage(
+    content: string,
+    attachments: MessageAttachment[] = []
+  ) {
     const cleanContent = content.trim()
     if (!cleanContent) return
 
@@ -118,6 +122,7 @@ export function useChatSessions() {
       role: "user",
       content: cleanContent,
       createdAt: now,
+      attachments,
     }
     const assistantMessage: AssistantMessage = {
       id: crypto.randomUUID(),
@@ -127,6 +132,7 @@ export function useChatSessions() {
       status: "streaming",
       activity: "Starting",
       activities: ["Started request"],
+      followUpQuestions: [],
       sources: [],
       tools: [],
     }
@@ -221,6 +227,7 @@ export function useChatSessions() {
           content: event.response.answer,
           status: "complete",
           confidence: event.response.confidence,
+          followUpQuestions: event.response.follow_up_questions,
           sources: event.response.sources,
           tools: event.response.tools_used,
           model: event.response.model,

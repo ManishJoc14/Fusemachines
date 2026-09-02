@@ -2,7 +2,14 @@
 
 import { useState, type FormEvent, type KeyboardEvent } from "react"
 import Image from "next/image"
-import { ArrowUp, Paperclip } from "lucide-react"
+import {
+  ArrowUp,
+  Check,
+  CircleAlert,
+  FileText,
+  FileUp,
+  Paperclip,
+} from "lucide-react"
 
 import assistantLogo from "@/app/icon1.png"
 import { ChatMessage } from "@/components/chat/chat-message"
@@ -12,20 +19,31 @@ import {
   ChatContainerScrollAnchor,
 } from "@/components/ui/chat-container"
 import {
+  FileUpload,
+  FileUploadContent,
+  FileUploadTrigger,
+} from "@/components/ui/file-upload"
+import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/ui/input-group"
+import { Loader } from "@/components/ui/loader"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import type { ChatMessage as ChatMessageType } from "@/features/chat/types"
+import type {
+  ChatMessage as ChatMessageType,
+  MessageAttachment,
+} from "@/features/chat/types"
+import { uploadDocuments } from "@/features/documents/api"
+import type { SessionDocument } from "@/features/documents/types"
 
 interface ChatWorkspaceProps {
   messages: ChatMessageType[]
   isStreaming: boolean
   sessionTitle?: string
-  onSendMessage: (message: string) => void
+  onSendMessage: (message: string, attachments?: MessageAttachment[]) => void
 }
 
 export function ChatWorkspace({
@@ -35,19 +53,109 @@ export function ChatWorkspace({
   onSendMessage,
 }: ChatWorkspaceProps) {
   const [message, setMessage] = useState("")
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null)
+  const [uploadFailed, setUploadFailed] = useState(false)
+  const [uploadedDocuments, setUploadedDocuments] = useState<SessionDocument[]>(
+    []
+  )
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!message.trim() || isStreaming) return
 
-    onSendMessage(message)
+    const attachments = uploadedDocuments
+      .filter((document) => document.status === "ready")
+      .map((document) => ({
+        id: document.id,
+        name: document.name,
+        chunkCount: document.chunkCount,
+      }))
+
+    onSendMessage(message, attachments)
     setMessage("")
+    setUploadedDocuments([])
+    setUploadMessage(null)
+    setUploadFailed(false)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
       event.currentTarget.form?.requestSubmit()
+    }
+  }
+
+  async function handleFilesSelected(files: File[]) {
+    if (!files.length) return
+
+    const pendingDocuments = files.map((file, index) => ({
+      id: `${file.name}-${file.lastModified}-${index}`,
+      name: file.name,
+      status: "uploading" as const,
+      uploadedAt: new Date().toISOString(),
+    }))
+
+    setUploadedDocuments((current) => [...current, ...pendingDocuments])
+    setIsUploading(true)
+    setUploadFailed(false)
+    setUploadMessage(
+      `Uploading ${files.length} document${files.length === 1 ? "" : "s"}...`
+    )
+
+    try {
+      const result = await uploadDocuments(files)
+      const failedNames = result.files
+        .filter((file) => file.status === "error")
+        .map((file) => file.document_name)
+
+      setUploadedDocuments((current) =>
+        current.map((document) => {
+          const resultIndex = pendingDocuments.findIndex(
+            (pending) => pending.id === document.id
+          )
+          if (resultIndex === -1) return document
+
+          const fileResult = result.files[resultIndex]
+          if (fileResult.status === "error" || !fileResult.ingestion) {
+            return {
+              ...document,
+              status: "error",
+              error: fileResult.error ?? "Upload failed",
+            }
+          }
+
+          return {
+            ...document,
+            id: fileResult.ingestion.document_id,
+            status: "ready",
+            characterCount: fileResult.ingestion.character_count,
+            chunkCount: fileResult.ingestion.chunk_count,
+          }
+        })
+      )
+
+      setUploadFailed(result.failed_files > 0)
+      setUploadMessage(
+        result.failed_files === 0
+          ? `${result.successful_files} document${result.successful_files === 1 ? "" : "s"} ready`
+          : `${result.successful_files} ready; failed: ${failedNames.join(", ")}`
+      )
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Document upload failed"
+
+      setUploadedDocuments((current) =>
+        current.map((document) =>
+          pendingDocuments.some((pending) => pending.id === document.id)
+            ? { ...document, status: "error", error: errorMessage }
+            : document
+        )
+      )
+      setUploadFailed(true)
+      setUploadMessage(errorMessage)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -86,7 +194,12 @@ export function ChatWorkspace({
         ) : (
           <ChatContainerContent className="mx-auto w-full max-w-3xl gap-8 py-6">
             {messages.map((chatMessage) => (
-              <ChatMessage key={chatMessage.id} message={chatMessage} />
+              <ChatMessage
+                key={chatMessage.id}
+                message={chatMessage}
+                onSuggestionSelect={onSendMessage}
+                suggestionsDisabled={isStreaming}
+              />
             ))}
             <ChatContainerScrollAnchor />
           </ChatContainerContent>
@@ -95,44 +208,113 @@ export function ChatWorkspace({
 
       <div className="shrink-0 px-3 pb-2 sm:px-6">
         <form className="mx-auto max-w-3xl" onSubmit={handleSubmit}>
-          <InputGroup className="rounded-3xl bg-card shadow-xs">
-            <label className="sr-only" htmlFor="chat-message">
-              Message the assistant
-            </label>
-            <InputGroupTextarea
-              className="min-h-16 px-3"
-              disabled={isStreaming}
-              id="chat-message"
-              onChange={(event) => setMessage(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about your documents..."
-              rows={2}
-              value={message}
-            />
-            <InputGroupAddon align="block-end" className="justify-between">
-              <InputGroupButton
-                aria-label="Attach a document"
-                disabled
-                size="icon-sm"
-                variant="ghost"
-              >
-                <Paperclip aria-hidden="true" />
-              </InputGroupButton>
-              <InputGroupButton
-                aria-label="Send message"
-                disabled={!message.trim() || isStreaming}
-                size="icon-sm"
-                type="submit"
-              >
-                <ArrowUp aria-hidden="true" />
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
+          <FileUpload
+            accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf"
+            disabled={isUploading}
+            onFilesAdded={handleFilesSelected}
+          >
+            <FileUploadContent>
+              <div className="flex flex-col items-center gap-3 rounded-2xl border bg-card px-8 py-6 shadow-lg">
+                <FileUp aria-hidden="true" className="size-7" />
+                <p className="font-medium">Drop documents to upload</p>
+                <p className="text-sm text-muted-foreground">
+                  Markdown, text, or PDF
+                </p>
+              </div>
+            </FileUploadContent>
+
+            <InputGroup className="rounded-3xl bg-card shadow-xs">
+              {uploadedDocuments.length ? (
+                <InputGroupAddon
+                  align="block-start"
+                  className="flex-wrap gap-2"
+                >
+                  {uploadedDocuments.map((document) => (
+                    <DocumentChip document={document} key={document.id} />
+                  ))}
+                </InputGroupAddon>
+              ) : null}
+
+              <label className="sr-only" htmlFor="chat-message">
+                Message the assistant
+              </label>
+              <InputGroupTextarea
+                className="min-h-16 px-3"
+                disabled={isStreaming || isUploading}
+                id="chat-message"
+                onChange={(event) => setMessage(event.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about your documents..."
+                rows={2}
+                value={message}
+              />
+              <InputGroupAddon align="block-end" className="justify-between">
+                <FileUploadTrigger asChild>
+                  <InputGroupButton
+                    aria-label={
+                      isUploading ? "Uploading documents" : "Attach documents"
+                    }
+                    disabled={isUploading}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    {isUploading ? (
+                      <Loader size="sm" variant="circular" />
+                    ) : (
+                      <Paperclip aria-hidden="true" />
+                    )}
+                  </InputGroupButton>
+                </FileUploadTrigger>
+                <InputGroupButton
+                  aria-label="Send message"
+                  disabled={!message.trim() || isStreaming || isUploading}
+                  size="icon-sm"
+                  type="submit"
+                >
+                  <ArrowUp aria-hidden="true" />
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+          </FileUpload>
         </form>
+        {uploadMessage ? (
+          <p
+            aria-live="polite"
+            className={
+              uploadFailed
+                ? "mt-2 text-center text-xs text-destructive"
+                : "mt-2 text-center text-xs text-muted-foreground"
+            }
+          >
+            {uploadMessage}
+          </p>
+        ) : null}
         <p className="mt-2 text-center text-xs text-muted-foreground">
           AI can make mistakes. Check important information.
         </p>
       </div>
     </section>
+  )
+}
+
+function DocumentChip({ document }: { document: SessionDocument }) {
+  return (
+    <div className="flex max-w-56 min-w-0 items-center gap-2 rounded-lg bg-muted px-2.5 py-1.5 text-sm">
+      <FileText aria-hidden="true" className="size-4 shrink-0" />
+      <span className="truncate">{document.name}</span>
+      {document.status === "uploading" ? (
+        <Loader className="shrink-0" size="sm" variant="circular" />
+      ) : document.status === "ready" ? (
+        <Check
+          aria-label="Upload complete"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+      ) : (
+        <CircleAlert
+          aria-label={document.error ?? "Upload failed"}
+          className="size-4 shrink-0 text-destructive"
+        />
+      )}
+    </div>
   )
 }
