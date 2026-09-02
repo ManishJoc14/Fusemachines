@@ -13,6 +13,7 @@ export default function Page() {
     createSession,
     selectSession,
     deleteSession,
+    addUserMessage,
   } = useChatSessions()
 
   return (
@@ -25,7 +26,11 @@ export default function Page() {
         sessions={sessions}
       />
       <SidebarInset className="h-svh overflow-hidden">
-        <ChatWorkspace sessionTitle={activeSession?.title} />
+        <ChatWorkspace
+          messages={activeSession?.messages ?? []}
+          onSendMessage={addUserMessage}
+          sessionTitle={activeSession?.title}
+        />
       </SidebarInset>
     </SidebarProvider>
   )

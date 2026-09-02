@@ -8,7 +8,7 @@ import {
   saveSessionState,
   type SessionState,
 } from "./session-storage"
-import type { ChatSession } from "./types"
+import type { ChatSession, UserMessage } from "./types"
 
 export function useChatSessions() {
   const [state, setState] = useState<SessionState>(createEmptySessionState)
@@ -100,6 +100,62 @@ export function useChatSessions() {
     saveSessionState(updatedState)
   }
 
+  function addUserMessage(content: string) {
+    const cleanContent = content.trim()
+    if (!cleanContent) return
+
+    // Step 1: Build the user message.
+    const now = new Date().toISOString()
+    const newMessage: UserMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: cleanContent,
+      createdAt: now,
+    }
+
+    // Step 2: Add it to the active session.
+    if (activeSession) {
+      const updatedSession: ChatSession = {
+        ...activeSession,
+        title:
+          activeSession.messages.length === 0
+            ? createSessionTitle(cleanContent)
+            : activeSession.title,
+        messages: [...activeSession.messages, newMessage],
+        updatedAt: now,
+      }
+
+      const updatedSessions = state.sessions.map((session) =>
+        session.id === updatedSession.id ? updatedSession : session
+      )
+
+      const updatedState: SessionState = {
+        sessions: updatedSessions,
+        activeSessionId: updatedSession.id,
+      }
+
+      setState(updatedState)
+      saveSessionState(updatedState)
+      return
+    }
+
+    // Step 3: If no session exists, create one with the message.
+    const newSession: ChatSession = {
+      ...buildSession(),
+      title: createSessionTitle(cleanContent),
+      messages: [newMessage],
+      updatedAt: now,
+    }
+
+    const updatedState: SessionState = {
+      sessions: [newSession, ...state.sessions],
+      activeSessionId: newSession.id,
+    }
+
+    setState(updatedState)
+    saveSessionState(updatedState)
+  }
+
   return {
     sessions: state.sessions,
     activeSession,
@@ -108,7 +164,16 @@ export function useChatSessions() {
     selectSession,
     renameSession,
     deleteSession,
+    addUserMessage,
   }
+}
+
+function createSessionTitle(message: string): string {
+  const maximumLength = 40
+
+  return message.length > maximumLength
+    ? `${message.slice(0, maximumLength)}…`
+    : message
 }
 
 function buildSession(): ChatSession {
