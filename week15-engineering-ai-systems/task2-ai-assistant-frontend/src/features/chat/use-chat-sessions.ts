@@ -147,6 +147,20 @@ export function useChatSessions(enabled: boolean) {
     }
   }
 
+  async function renameSession(sessionId: string, title: string) {
+    const cleanTitle = title.trim()
+    if (!cleanTitle) return
+
+    setError(null)
+    try {
+      const updated = await updateSession(sessionId, { title: cleanTitle })
+      updateSessionTitle(sessionId, updated.title)
+    } catch (renameError) {
+      setError(readError(renameError, "Could not rename this chat"))
+      throw renameError
+    }
+  }
+
   async function sendMessage(
     content: string,
     attachments: MessageAttachment[] = []
@@ -367,6 +381,7 @@ export function useChatSessions(enabled: boolean) {
     createSession,
     selectSession,
     deleteSession,
+    renameSession,
     sendMessage,
     stopGeneration,
   }

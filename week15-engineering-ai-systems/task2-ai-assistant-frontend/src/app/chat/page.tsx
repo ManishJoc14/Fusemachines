@@ -69,6 +69,7 @@ export default function ChatPage() {
         onCreateSession={chat.createSession}
         onDeleteSession={chat.deleteSession}
         onLogout={logout}
+        onRenameSession={chat.renameSession}
         onSelectSession={chat.selectSession}
         sessions={chat.sessions}
         user={user}

@@ -1,6 +1,7 @@
 "use client"
 
 import { GoogleOAuthProvider } from "@react-oauth/google"
+import { Toaster } from "sonner"
 
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/features/auth/auth-provider"
@@ -11,7 +12,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
       <ThemeProvider>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </ThemeProvider>
     </GoogleOAuthProvider>
   )

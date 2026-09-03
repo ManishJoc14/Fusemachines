@@ -208,7 +208,7 @@ export function ChatWorkspace({
           <SidebarTrigger aria-label="Open chat sessions" />
 
           <Separator
-            className="mr-1 h-4"
+            className="mr-1 h-4 mt-2"
             orientation="vertical"
           />
 
