@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
@@ -11,6 +13,8 @@ from app.tools.registry import RegisteredTool
 
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+logger = logging.getLogger(__name__)
 
 
 class WeatherInput(BaseModel):
@@ -68,21 +72,33 @@ class WeatherService:
     async def current_weather(self, location_query: str) -> dict[str, object]:
         """Resolve a place and return its current weather conditions."""
 
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                # Step 1: Convert the human-readable place into coordinates.
-                location = await self._resolve_location(client, location_query)
+        async with httpx.AsyncClient(
+            timeout=20.0,
+            headers={"User-Agent": "engineering-ai-assistant/0.1"},
+        ) as client:
+            for attempt in range(2):
+                try:
+                    # Step 1: Convert the human-readable place into coordinates.
+                    location = await self._resolve_location(client, location_query)
 
-                # Step 2: Fetch current conditions for those coordinates.
-                current, units, timezone = await self._fetch_conditions(
-                    client,
-                    location,
-                )
+                    # Step 2: Fetch current conditions for those coordinates.
+                    current, units, timezone = await self._fetch_conditions(
+                        client,
+                        location,
+                    )
 
-                # Step 3: Return a compact result suitable for the LLM context.
-                return self._build_result(location, current, units, timezone)
-        except httpx.HTTPError as exc:
-            raise ValueError("The weather service is currently unavailable") from exc
+                    # Step 3: Return a compact result suitable for the LLM context.
+                    return self._build_result(location, current, units, timezone)
+                except httpx.HTTPError as exc:
+                    logger.warning(
+                        "Weather request failed on attempt %d: %s",
+                        attempt + 1,
+                        type(exc).__name__,
+                    )
+                    if attempt == 0:
+                        await asyncio.sleep(0.5)
+
+        raise ValueError("The weather service is currently unavailable")
 
     @staticmethod
     async def _resolve_location(

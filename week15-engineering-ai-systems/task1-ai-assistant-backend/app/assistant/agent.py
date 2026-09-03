@@ -171,8 +171,22 @@ class AssistantAgent:
             # Step 3: Stream the final natural-language answer from the provider.
             answer_parts: list[str] = []
             final_model = completion.model
+            final_messages = [
+                *messages,
+                {
+                    "role": "user",
+                    "content": (
+                        "All required tool calls are complete. Answer the original "
+                        "question now using the available tool results and context. "
+                        "Do not call another tool."
+                    ),
+                },
+            ]
 
-            async for chunk in self._llm.stream_text(messages, model=active_model):
+            async for chunk in self._llm.stream_text(
+                final_messages,
+                model=active_model,
+            ):
                 final_model = chunk.model
                 used_fallback = used_fallback or chunk.used_fallback
                 if chunk.content:

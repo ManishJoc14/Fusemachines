@@ -8,6 +8,7 @@ from typing import Any, Generic, TypeVar, cast
 
 from openai import (
     APIConnectionError,
+    APIError,
     APIStatusError,
     APITimeoutError,
     AsyncOpenAI,
@@ -128,6 +129,7 @@ class LLMClient:
                     used_fallback=candidate != self._models[0],
                 )
             except (
+                APIError,
                 APIConnectionError,
                 APIStatusError,
                 APITimeoutError,
@@ -185,6 +187,7 @@ class LLMClient:
                 )
                 return
             except (
+                APIError,
                 APIConnectionError,
                 APIStatusError,
                 APITimeoutError,
