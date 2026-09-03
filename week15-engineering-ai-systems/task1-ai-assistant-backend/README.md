@@ -14,6 +14,7 @@ through Hugging Face or an OpenAI-compatible model served with vLLM.
 - Markdown, text, and PDF ingestion
 - Local sentence-transformer embeddings and Qdrant vector search
 - Verifiable document citations in chat responses
+- Redis-backed per-user chat rate limiting
 - Docker image and optional GPU vLLM Compose profile
 
 The detailed system diagram is in [Architecture](docs/architecture.md).
@@ -83,7 +84,7 @@ Open the API documentation at <http://localhost:8000/api/docs> and check health 
 To run PostgreSQL through Docker while developing locally:
 
 ```bash
-docker compose up -d db
+docker compose up -d db redis
 alembic upgrade head
 ```
 

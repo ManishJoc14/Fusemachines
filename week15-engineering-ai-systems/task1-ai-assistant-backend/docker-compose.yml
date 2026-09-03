@@ -16,6 +16,19 @@ services:
       retries: 5
     restart: unless-stopped
 
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   api:
     build:
       context: .
@@ -23,12 +36,15 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/assistant
+      REDIS_URL: redis://redis:6379/0
       VLLM_BASE_URL: http://vllm:8000/v1
       DOCUMENTS_DIRECTORY: /app/data/documents
     ports:
       - "8000:8000"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./data/documents:/app/data/documents:ro
@@ -84,3 +100,4 @@ services:
 volumes:
   huggingface_cache:
   postgres_data:
+  redis_data:

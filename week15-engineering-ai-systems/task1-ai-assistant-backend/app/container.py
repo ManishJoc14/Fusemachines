@@ -5,6 +5,7 @@ import asyncio
 from app.assistant.agent import AssistantAgent
 from app.auth.google import GoogleTokenVerifier
 from app.core.config import Settings
+from app.core.redis import RedisClient
 from app.db.session import Database
 from app.llm.client import LLMClient
 from app.rag.chunker import TextChunker
@@ -15,6 +16,7 @@ from app.rag.vector_store import VectorStore
 from app.services.auth import AuthService
 from app.services.chat import ChatService
 from app.services.ingestion import IngestionService
+from app.services.rate_limit import RateLimiter
 from app.services.sessions import SessionService
 from app.tools.builtin import create_default_tool_registry
 
@@ -31,6 +33,12 @@ class ApplicationContainer:
         self.database = Database(
             settings.database_url.get_secret_value(),
             echo=settings.database_echo,
+        )
+        self.redis = RedisClient(settings.redis_url.get_secret_value())
+        self.rate_limiter = RateLimiter(
+            self.redis.client,
+            requests=settings.chat_rate_limit_requests,
+            window_seconds=settings.chat_rate_limit_window_seconds,
         )
         google_verifier = (
             GoogleTokenVerifier(settings.google_client_id)
@@ -83,4 +91,5 @@ class ApplicationContainer:
             self.llm_client.close(),
             self.vector_store.close(),
             self.database.close(),
+            self.redis.close(),
         )

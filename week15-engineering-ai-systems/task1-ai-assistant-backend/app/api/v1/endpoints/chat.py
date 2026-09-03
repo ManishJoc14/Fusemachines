@@ -6,7 +6,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from app.api.dependencies import get_chat_service, get_current_user
+from app.api.dependencies import (
+    enforce_chat_rate_limit,
+    get_chat_service,
+    get_current_user,
+)
 from app.db.models import User
 from app.llm.client import LLMError
 from app.schemas.chat import ChatRequest, ChatResponse, ChatStreamError, ChatStreamEvent
@@ -24,6 +28,7 @@ async def chat(
     request: ChatRequest,
     user: Annotated[User, Depends(get_current_user)],
     service: Annotated[ChatService, Depends(get_chat_service)],
+    _: Annotated[None, Depends(enforce_chat_rate_limit)],
 ) -> ChatResponse:
     try:
         return await service.chat(request, user.id)
@@ -49,6 +54,7 @@ async def stream_chat(
     request: ChatRequest,
     user: Annotated[User, Depends(get_current_user)],
     service: Annotated[ChatService, Depends(get_chat_service)],
+    _: Annotated[None, Depends(enforce_chat_rate_limit)],
 ) -> StreamingResponse:
     """Stream assistant progress and results as Server-Sent Events."""
 
