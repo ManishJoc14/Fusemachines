@@ -15,6 +15,7 @@ from app.rag.vector_store import VectorStore
 from app.services.auth import AuthService
 from app.services.chat import ChatService
 from app.services.ingestion import IngestionService
+from app.services.sessions import SessionService
 from app.tools.builtin import create_default_tool_registry
 
 
@@ -41,6 +42,7 @@ class ApplicationContainer:
             google_verifier,
             session_days=settings.auth_session_days,
         )
+        self.session_service = SessionService(self.database)
 
         # Step 2: Assemble the retrieval pipeline.
         embeddings = EmbeddingService(

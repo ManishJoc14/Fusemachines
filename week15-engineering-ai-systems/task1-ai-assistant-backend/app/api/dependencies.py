@@ -9,6 +9,7 @@ from app.db.models import User
 from app.services.auth import AuthenticationRequired, AuthService
 from app.services.chat import ChatService
 from app.services.ingestion import IngestionService
+from app.services.sessions import SessionService
 
 
 def get_container(request: Request) -> ApplicationContainer:
@@ -25,6 +26,10 @@ def get_ingestion_service(request: Request) -> IngestionService:
 
 def get_auth_service(request: Request) -> AuthService:
     return get_container(request).auth_service
+
+
+def get_session_service(request: Request) -> SessionService:
+    return get_container(request).session_service
 
 
 async def get_current_user(
