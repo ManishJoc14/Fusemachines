@@ -49,10 +49,10 @@ class GoogleTokenVerifier:
 
         if claims.get("email_verified") is not True:
             raise InvalidGoogleCredential("Google email is not verified")
-        
+
         if not isinstance(subject, str) or not subject:
             raise InvalidGoogleCredential("Google credential is missing a subject")
-        
+
         if not isinstance(email, str) or not email:
             raise InvalidGoogleCredential("Google credential is missing an email")
 

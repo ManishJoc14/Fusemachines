@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import uuid
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+Confidence = Literal["low", "medium", "high"]
 
 
 class ChatMessage(BaseModel):
@@ -11,9 +14,9 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    session_id: uuid.UUID
     message: str = Field(min_length=1, max_length=8_000)
-    history: list[ChatMessage] = Field(default_factory=list, max_length=20)
-    use_rag: bool = True
+    document_ids: list[uuid.UUID] = Field(default_factory=list, max_length=10)
 
 
 class AssistantOutput(BaseModel):
@@ -24,7 +27,7 @@ class AssistantOutput(BaseModel):
     answer: str = Field(min_length=1)
     cited_chunk_ids: list[str]
     follow_up_questions: list[str] = Field(max_length=3)
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
 
 
 class AssistantMetadata(BaseModel):
@@ -34,7 +37,7 @@ class AssistantMetadata(BaseModel):
 
     cited_chunk_ids: list[str]
     follow_up_questions: list[str] = Field(max_length=3)
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
 
 
 class SourceReference(BaseModel):
@@ -54,7 +57,7 @@ class ToolExecution(BaseModel):
 
 
 class PipelineStats(BaseModel):
-    retrieval_strategy: Literal["dense_cosine", "disabled"]
+    retrieval_strategy: Literal["hybrid_rerank", "dense_cosine", "disabled"]
     retrieved_chunks: int
     cited_chunks: int
     tool_executions: int
@@ -62,7 +65,7 @@ class PipelineStats(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     follow_up_questions: list[str]
     sources: list[SourceReference]
     tools_used: list[ToolExecution]

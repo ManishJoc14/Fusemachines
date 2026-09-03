@@ -94,9 +94,16 @@ class VectorStore:
             field_schema=models.PayloadSchemaType.KEYWORD,
             wait=True,
         )
+        await self._client.create_payload_index(
+            collection_name=self._collection,
+            field_name="user_id",
+            field_schema=models.PayloadSchemaType.KEYWORD,
+            wait=True,
+        )
 
     async def replace_document_from_text(
         self,
+        user_id: str,
         document_id: str,
         chunks: list[DocumentChunk],
     ) -> None:
@@ -107,7 +114,7 @@ class VectorStore:
 
         try:
             await self.ensure_collection()
-            await self._delete_document(document_id)
+            await self._delete_document(user_id, document_id)
             points = [
                 models.PointStruct(
                     id=chunk.chunk_id,
@@ -136,6 +143,7 @@ class VectorStore:
 
     async def replace_document(
         self,
+        user_id: str,
         document_id: str,
         chunks: list[DocumentChunk],
         vectors: list[list[float]],
@@ -148,7 +156,7 @@ class VectorStore:
         await self.ensure_collection()
 
         # Step 2: Remove vectors from an earlier ingestion of this document.
-        await self._delete_document(document_id)
+        await self._delete_document(user_id, document_id)
 
         # Step 3: Convert chunks and embeddings into Qdrant points.
         points = self._build_points(chunks, vectors)
@@ -156,7 +164,7 @@ class VectorStore:
         # Step 4: Write bounded batches instead of one unbounded request.
         await self._upsert_batches(points)
 
-    async def _delete_document(self, document_id: str) -> None:
+    async def _delete_document(self, user_id: str, document_id: str) -> None:
         if not await self._client.collection_exists(self._collection):
             self._collection_ready = False
             return
@@ -167,9 +175,13 @@ class VectorStore:
                 filter=models.Filter(
                     must=[
                         models.FieldCondition(
+                            key="user_id",
+                            match=models.MatchValue(value=user_id),
+                        ),
+                        models.FieldCondition(
                             key="document_id",
                             match=models.MatchValue(value=document_id),
-                        )
+                        ),
                     ]
                 )
             ),
@@ -203,6 +215,8 @@ class VectorStore:
         self,
         query_vector: list[float],
         *,
+        user_id: str,
+        document_ids: list[str],
         limit: int,
         score_threshold: float,
     ) -> list[RetrievedChunk]:
@@ -214,6 +228,7 @@ class VectorStore:
             collection_name=self._collection,
             query=query_vector,
             using=self.DENSE_VECTOR,
+            query_filter=self._scope_filter(user_id, document_ids),
             limit=limit,
             score_threshold=score_threshold,
             with_payload=True,
@@ -227,6 +242,8 @@ class VectorStore:
         self,
         query: str,
         *,
+        user_id: str,
+        document_ids: list[str],
         limit: int,
         score_threshold: float,
     ) -> list[RetrievedChunk]:
@@ -243,17 +260,20 @@ class VectorStore:
                     models.Prefetch(
                         query=models.Document(text=query, model=self._dense_model),
                         using=self.DENSE_VECTOR,
+                        filter=self._scope_filter(user_id, document_ids),
                         limit=self._candidate_limit,
                     ),
                     models.Prefetch(
                         query=models.Document(text=query, model=self._sparse_model),
                         using=self.SPARSE_VECTOR,
+                        filter=self._scope_filter(user_id, document_ids),
                         limit=self._candidate_limit,
                     ),
                 ],
                 query=models.Document(text=query, model=self._reranker_model),
                 using=self.RERANK_VECTOR,
                 limit=limit,
+                score_threshold=score_threshold,
                 with_payload=True,
                 with_vectors=False,
             )
@@ -261,6 +281,21 @@ class VectorStore:
         except Exception as exc:
             self._disable_cloud_inference(exc)
             raise CloudInferenceUnavailable from exc
+
+    @staticmethod
+    def _scope_filter(user_id: str, document_ids: list[str]) -> models.Filter:
+        return models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="user_id",
+                    match=models.MatchValue(value=user_id),
+                ),
+                models.FieldCondition(
+                    key="document_id",
+                    match=models.MatchAny(any=document_ids),
+                ),
+            ]
+        )
 
     def _disable_cloud_inference(self, exc: Exception) -> None:
         if self._cloud_inference_available:

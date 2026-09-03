@@ -21,6 +21,7 @@ class TextChunker:
         text: str,
         *,
         document_id: str,
+        user_id: str,
         document_name: str,
     ) -> list[DocumentChunk]:
         """Split text into overlapping chunks near readable boundaries.
@@ -43,6 +44,7 @@ class TextChunker:
                 source_start=start,
                 chunk_index=len(chunks),
                 document_id=document_id,
+                user_id=user_id,
                 document_name=document_name,
             )
             if chunk is not None:
@@ -62,6 +64,7 @@ class TextChunker:
         source_start: int,
         chunk_index: int,
         document_id: str,
+        user_id: str,
         document_name: str,
     ) -> DocumentChunk | None:
         clean_text = raw_text.strip()
@@ -75,6 +78,7 @@ class TextChunker:
         return DocumentChunk(
             chunk_id=chunk_id,
             document_id=document_id,
+            user_id=user_id,
             document_name=document_name,
             chunk_index=chunk_index,
             text=clean_text,

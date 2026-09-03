@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Annotated, BinaryIO
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
-from app.api.dependencies import get_ingestion_service
+from app.api.dependencies import get_current_user, get_ingestion_service
+from app.db.models import User
 from app.schemas.document import (
     BatchIngestionResult,
     DocumentUploadResult,
@@ -61,12 +63,13 @@ async def upload_document(
         UploadFile,
         File(description="Markdown, text, or PDF document to ingest."),
     ],
+    user: Annotated[User, Depends(get_current_user)],
     service: Annotated[IngestionService, Depends(get_ingestion_service)],
 ) -> IngestionResult:
     """Ingest one uploaded document."""
 
     try:
-        return await _ingest_upload(file, service)
+        return await _ingest_upload(file, user.id, service)
     except (ValueError, UnicodeError) as exc:
         raise _upload_error(exc) from exc
 
@@ -81,6 +84,7 @@ async def upload_documents(
         list[UploadFile],
         File(description="Markdown, text, or PDF documents to ingest."),
     ],
+    user: Annotated[User, Depends(get_current_user)],
     service: Annotated[IngestionService, Depends(get_ingestion_service)],
 ) -> BatchIngestionResult:
     """Ingest several documents and report each file independently."""
@@ -105,7 +109,7 @@ async def upload_documents(
 
         async with semaphore:
             try:
-                ingestion = await _ingest_upload(file, service)
+                ingestion = await _ingest_upload(file, user.id, service)
                 return DocumentUploadResult(
                     document_name=document_name,
                     status="success",
@@ -132,6 +136,7 @@ async def upload_documents(
 
 async def _ingest_upload(
     file: UploadFile,
+    user_id: uuid.UUID,
     service: IngestionService,
 ) -> IngestionResult:
     """Save, ingest, and clean up one uploaded file."""
@@ -144,7 +149,11 @@ async def _ingest_upload(
         await _save_upload(file, temporary_path, service.max_upload_bytes)
 
         # Step 2: Load, chunk, embed, and store the temporary document.
-        return await service.ingest(temporary_path, document_name=safe_name)
+        return await service.ingest(
+            temporary_path,
+            user_id=user_id,
+            document_name=safe_name,
+        )
     finally:
         # Step 3: Always close and remove temporary resources.
         await file.close()

@@ -66,14 +66,16 @@ class ApplicationContainer:
         )
 
         # Step 4: Expose use-case services consumed by API endpoints.
-        self.chat_service = ChatService(retriever, agent)
+        self.chat_service = ChatService(retriever, agent, self.database)
         self.ingestion_service = IngestionService(
             DocumentLoader(),
             TextChunker(settings.rag_chunk_size, settings.rag_chunk_overlap),
             embeddings,
             self.vector_store,
+            self.database,
             max_upload_size_mb=settings.max_upload_size_mb,
             max_batch_files=settings.max_batch_upload_files,
+            retention_days=settings.document_retention_days,
         )
 
     async def close(self) -> None:

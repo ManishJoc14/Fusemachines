@@ -93,6 +93,10 @@ class ChatMessage(TimestampMixin, Base):
 class Document(TimestampMixin, Base):
     __tablename__ = "documents"
     __table_args__ = (
+        CheckConstraint(
+            "status IN ('processing', 'ready', 'error')",
+            name="valid_status",
+        ),
         UniqueConstraint("user_id", "content_hash"),
         Index("ix_documents_user_expires", "user_id", "expires_at"),
     )
@@ -105,6 +109,7 @@ class Document(TimestampMixin, Base):
     )
     content_hash: Mapped[str] = mapped_column(String(64))
     name: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(20), default="processing")
     character_count: Mapped[int] = mapped_column(Integer)
     chunk_count: Mapped[int] = mapped_column(Integer)
     expires_at: Mapped[datetime] = mapped_column(

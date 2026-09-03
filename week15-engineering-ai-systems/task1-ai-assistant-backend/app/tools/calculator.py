@@ -249,6 +249,7 @@ class CalculatorInput(BaseModel):
         ),
     )
 
+
 class SafeCalculator:
     """Evaluate arithmetic expressions without executing arbitrary Python."""
 

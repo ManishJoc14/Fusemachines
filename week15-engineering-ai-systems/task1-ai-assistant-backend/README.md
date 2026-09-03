@@ -92,38 +92,51 @@ Alembic owns database schema changes. Do not create application tables with
 
 ## Ingest a document
 
-Upload through the API:
+Protected endpoints use the HttpOnly session cookie created by
+`POST /api/v1/auth/google`. The frontend should include credentials on every
+request. The examples below assume that cookie has already been saved to
+`cookies.txt`.
+
+Upload a document through the API:
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/documents \
   -H "accept: application/json" \
+  -b cookies.txt \
   -F "file=@data/documents/nepal_flood.md;type=text/markdown"
 ```
 
-Or ingest files directly:
+The response contains the document UUID needed when sending a chat message.
+Administrators can also ingest a file for a known user directly:
 
 ```bash
-python scripts/ingest_documents.py data/documents/nepal_flood.md
+python scripts/ingest_documents.py \
+  data/documents/nepal_flood.md \
+  --user-id USER_UUID
 ```
 
 The pipeline validates the file, extracts text, creates overlapping chunks,
-embeds them locally, and replaces that document's vectors in Qdrant.
+and stores user-scoped vectors in Qdrant. Qdrant Cloud inference performs
+hybrid retrieval and reranking when available; local dense embeddings are the
+fallback.
 
 ## Ask a question
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/chat \
   -H "Content-Type: application/json" \
+  -b cookies.txt \
   -d '{
+    "session_id": "SESSION_UUID",
     "message": "What caused the Nepal floods? Cite the report.",
-    "history": [],
-    "use_rag": true
+    "document_ids": ["DOCUMENT_UUID"]
   }'
 ```
 
-Set `use_rag` to `false` for a request that should not search the knowledge
-base. The response reports citations, executed tools, selected model, fallback
-status, and pipeline statistics.
+Chat history is loaded from PostgreSQL rather than accepted from the client.
+Only documents owned by the authenticated user and attached to the session can
+be retrieved. The response reports citations, executed tools, selected model,
+fallback status, and pipeline statistics.
 
 ## LLM backends
 
@@ -190,8 +203,15 @@ pytest
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/v1/health` | Application liveness check |
-| `POST` | `/api/v1/documents` | Ingest `.md`, `.txt`, or `.pdf` content |
+| `POST` | `/api/v1/auth/google` | Sign in with a Google ID credential |
+| `GET` | `/api/v1/auth/me` | Return the authenticated user |
+| `POST` | `/api/v1/auth/logout` | Revoke the current application session |
+| `GET, POST` | `/api/v1/sessions` | List or create chat sessions |
+| `GET, PATCH, DELETE` | `/api/v1/sessions/{id}` | Read, rename, or delete an owned session |
+| `POST` | `/api/v1/documents` | Ingest one owned `.md`, `.txt`, or `.pdf` file |
+| `POST` | `/api/v1/documents/batch` | Ingest multiple owned files |
 | `POST` | `/api/v1/chat` | Run retrieval, tools, and structured generation |
+| `POST` | `/api/v1/chat/stream` | Stream progress, tool calls, and answer events |
 
 ## ONNX decision
 

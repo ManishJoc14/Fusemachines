@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,6 +12,7 @@ class DocumentChunk(BaseModel):
 
     chunk_id: str
     document_id: str
+    user_id: str
     document_name: str
     chunk_index: int = Field(ge=0)
     text: str = Field(min_length=1)
@@ -22,10 +25,11 @@ class RetrievedChunk(DocumentChunk):
 
 
 class IngestionResult(BaseModel):
-    document_id: str
+    document_id: uuid.UUID
     document_name: str
     character_count: int
     chunk_count: int
+    expires_at: datetime
 
 
 class DocumentUploadResult(BaseModel):

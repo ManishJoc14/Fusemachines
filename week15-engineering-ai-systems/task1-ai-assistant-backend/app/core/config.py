@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     documents_directory: Path = Path("data/documents")
     max_upload_size_mb: int = Field(default=10, gt=0)
     max_batch_upload_files: int = Field(default=10, gt=0, le=15)
+    document_retention_days: int = Field(default=30, ge=1, le=365)
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
