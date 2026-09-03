@@ -2358,6 +2358,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@react-oauth/google@npm:^0.13.5":
+  version: 0.13.5
+  resolution: "@react-oauth/google@npm:0.13.5"
+  peerDependencies:
+    react: ">=16.8.0"
+    react-dom: ">=16.8.0"
+  checksum: 10c0/e3d6e40a2e65e5233c2aaa90b3e36398c6ef940d0d15963e0d2cd89e074da380093588f91f1ee4e4bc90f07244a584cdb705746eb4645208b637574f45d492e8
+  languageName: node
+  linkType: hard
+
 "@rtsao/scc@npm:^1.1.0":
   version: 1.1.0
   resolution: "@rtsao/scc@npm:1.1.0"
@@ -9828,6 +9838,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "task2-ai-assistant-frontend@workspace:."
   dependencies:
+    "@react-oauth/google": "npm:^0.13.5"
     "@tailwindcss/postcss": "npm:^4"
     "@types/node": "npm:^20"
     "@types/react": "npm:^19"

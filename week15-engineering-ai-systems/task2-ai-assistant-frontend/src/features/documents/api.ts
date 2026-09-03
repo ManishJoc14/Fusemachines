@@ -1,6 +1,6 @@
 import "client-only"
 
-import { API_BASE_URL, throwApiError } from "@/lib/api"
+import { apiFetch, throwApiError } from "@/lib/api"
 
 import type { BatchIngestionResult } from "./types"
 
@@ -11,7 +11,7 @@ export async function uploadDocuments(
   const formData = new FormData()
   files.forEach((file) => formData.append("files", file))
 
-  const response = await fetch(`${API_BASE_URL}/documents/batch`, {
+  const response = await apiFetch("/documents/batch", {
     method: "POST",
     body: formData,
     signal,

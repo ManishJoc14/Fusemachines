@@ -15,7 +15,7 @@ export const StepsItem = ({
   className,
   ...props
 }: StepsItemProps) => (
-  <div className={cn("text-muted-foreground text-sm", className)} {...props}>
+  <div className={cn("text-sm text-muted-foreground", className)} {...props}>
     {children}
   </div>
 )
@@ -36,7 +36,7 @@ export const StepsTrigger = ({
 }: StepsTriggerProps) => (
   <CollapsibleTrigger
     className={cn(
-      "group text-muted-foreground hover:text-foreground flex w-full cursor-pointer items-center justify-start gap-1 text-sm transition-colors",
+      "group flex w-full cursor-pointer items-center justify-start gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground",
       className
     )}
     {...props}
@@ -80,7 +80,7 @@ export const StepsContent = ({
   return (
     <CollapsibleContent
       className={cn(
-        "text-popover-foreground data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down overflow-hidden",
+        "overflow-hidden text-popover-foreground data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down",
         className
       )}
       {...props}
@@ -97,7 +97,7 @@ export type StepsBarProps = React.HTMLAttributes<HTMLDivElement>
 
 export const StepsBar = ({ className, ...props }: StepsBarProps) => (
   <div
-    className={cn("bg-muted h-full w-[2px]", className)}
+    className={cn("h-full w-[2px] bg-muted", className)}
     aria-hidden
     {...props}
   />

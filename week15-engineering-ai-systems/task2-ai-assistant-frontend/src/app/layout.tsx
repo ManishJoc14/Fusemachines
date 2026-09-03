@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
+import { Providers } from "@/app/providers"
 import { cn } from "@/lib/utils"
 
 const inter = Inter({
@@ -35,7 +35,7 @@ export default function RootLayout({
       className={cn("font-sans antialiased", inter.variable, fontMono.variable)}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

@@ -2,111 +2,149 @@
 
 import { useEffect, useRef, useState } from "react"
 
-import { streamChat } from "./api"
 import {
-  createEmptySessionState,
-  loadSessionState,
-  saveSessionState,
-  type SessionState,
-} from "./session-storage"
+  createSession as createSessionRequest,
+  deleteSession as deleteSessionRequest,
+  getSession,
+  listSessions,
+  streamChat,
+  updateSession,
+} from "./api"
 import type {
   AssistantMessage,
-  ChatHistoryMessage,
-  MessageAttachment,
+  ChatMessage,
   ChatSession,
   ChatStreamEvent,
+  MessageAttachment,
+  SessionDetailDto,
+  SessionSummaryDto,
   UserMessage,
 } from "./types"
 
-export function useChatSessions() {
-  const [state, setState] = useState<SessionState>(createEmptySessionState)
-  const activeRequest = useRef<AbortController | null>(null)
+interface SessionState {
+  sessions: ChatSession[]
+  activeSessionId: string | null
+}
 
-  useEffect(() => {
-    // Local storage is only available after the page loads in the browser.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState(loadSessionState())
-  }, [])
+const EMPTY_STATE: SessionState = { sessions: [], activeSessionId: null }
+
+export function useChatSessions(enabled: boolean) {
+  const [state, setState] = useState<SessionState>(EMPTY_STATE)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const activeRequest = useRef<AbortController | null>(null)
 
   const activeSession =
     state.sessions.find((session) => session.id === state.activeSessionId) ??
     null
+  const isStreaming =
+    activeSession?.messages.some(
+      (message) =>
+        message.role === "assistant" && message.status === "streaming"
+    ) ?? false
 
-  function createSession() {
-    // Step 1: Create a blank chat session.
-    const newSession = buildSession()
+  useEffect(() => {
+    if (!enabled) return
 
-    // Step 2: Add it to the list and make it active.
-    const updatedState: SessionState = {
-      sessions: [newSession, ...state.sessions],
-      activeSessionId: newSession.id,
+    let cancelled = false
+
+    async function loadInitialSessions() {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const summaries = await listSessions()
+        if (cancelled) return
+
+        if (!summaries.length) {
+          setState(EMPTY_STATE)
+          return
+        }
+
+        const firstSession = await getSession(summaries[0].id)
+        if (cancelled) return
+
+        setState({
+          sessions: summaries.map((summary) =>
+            summary.id === firstSession.id
+              ? mapSessionDetail(firstSession)
+              : mapSessionSummary(summary)
+          ),
+          activeSessionId: firstSession.id,
+        })
+      } catch (loadError) {
+        if (!cancelled) setError(readError(loadError, "Could not load chats"))
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
 
-    // Step 3: Update the page and save the session locally.
-    setState(updatedState)
-    saveSessionState(updatedState)
+    void loadInitialSessions()
+    return () => {
+      cancelled = true
+      activeRequest.current?.abort()
+    }
+  }, [enabled])
+
+  async function createSession(): Promise<ChatSession | null> {
+    if (activeRequest.current) return null
+
+    setError(null)
+    try {
+      const created = mapSessionSummary(await createSessionRequest())
+      setState((current) => ({
+        sessions: [created, ...current.sessions],
+        activeSessionId: created.id,
+      }))
+      return created
+    } catch (createError) {
+      setError(readError(createError, "Could not create a chat"))
+      return null
+    }
   }
 
-  function selectSession(sessionId: string) {
-    // Ignore IDs that do not belong to an existing session.
-    const sessionExists = state.sessions.some(
-      (session) => session.id === sessionId
-    )
-    if (!sessionExists) return
+  async function selectSession(sessionId: string) {
+    if (activeRequest.current || sessionId === state.activeSessionId) return
 
-    const updatedState: SessionState = {
-      ...state,
-      activeSessionId: sessionId,
+    setState((current) => ({ ...current, activeSessionId: sessionId }))
+    const session = state.sessions.find((item) => item.id === sessionId)
+    if (session?.loaded) return
+
+    setIsLoading(true)
+    setError(null)
+    try {
+      replaceSession(mapSessionDetail(await getSession(sessionId)))
+    } catch (loadError) {
+      setError(readError(loadError, "Could not load this chat"))
+    } finally {
+      setIsLoading(false)
     }
-
-    setState(updatedState)
-    saveSessionState(updatedState)
   }
 
-  function renameSession(sessionId: string, title: string) {
-    // Do not replace a useful title with empty text.
-    const cleanTitle = title.trim()
-    if (!cleanTitle) return
+  async function deleteSession(sessionId: string) {
+    if (activeRequest.current) return
 
-    const updatedSessions = state.sessions.map((session) =>
-      session.id === sessionId
-        ? {
-            ...session,
-            title: cleanTitle,
-            updatedAt: new Date().toISOString(),
-          }
-        : session
-    )
+    setError(null)
+    try {
+      await deleteSessionRequest(sessionId)
+      const sessions = state.sessions.filter(
+        (session) => session.id !== sessionId
+      )
+      const nextActiveId =
+        state.activeSessionId === sessionId
+          ? (sessions[0]?.id ?? null)
+          : state.activeSessionId
 
-    const updatedState: SessionState = {
-      ...state,
-      sessions: updatedSessions,
+      setState({ sessions, activeSessionId: nextActiveId })
+
+      const nextSession = sessions.find(
+        (session) => session.id === nextActiveId
+      )
+      if (nextSession && !nextSession.loaded) {
+        replaceSession(mapSessionDetail(await getSession(nextSession.id)))
+      }
+    } catch (deleteError) {
+      setError(readError(deleteError, "Could not delete this chat"))
     }
-
-    setState(updatedState)
-    saveSessionState(updatedState)
-  }
-
-  function deleteSession(sessionId: string) {
-    // Step 1: Remove the selected session.
-    const remainingSessions = state.sessions.filter(
-      (session) => session.id !== sessionId
-    )
-
-    // Step 2: If it was active, select the next available session.
-    const nextActiveSessionId =
-      state.activeSessionId === sessionId
-        ? (remainingSessions[0]?.id ?? null)
-        : state.activeSessionId
-
-    const updatedState: SessionState = {
-      sessions: remainingSessions,
-      activeSessionId: nextActiveSessionId,
-    }
-
-    // Step 3: Update the page and local storage.
-    setState(updatedState)
-    saveSessionState(updatedState)
   }
 
   async function sendMessage(
@@ -116,10 +154,13 @@ export function useChatSessions() {
     const cleanContent = content.trim()
     if (!cleanContent || activeRequest.current) return
 
+    const session = activeSession ?? (await createSession())
+    if (!session) return
+
     const requestController = new AbortController()
     activeRequest.current = requestController
+    setError(null)
 
-    // Step 1: Build the user and pending assistant messages.
     const now = new Date().toISOString()
     const userMessage: UserMessage = {
       id: crypto.randomUUID(),
@@ -141,60 +182,34 @@ export function useChatSessions() {
       tools: [],
     }
 
-    // Step 2: Add both messages to the active session or a new session.
-    const session = activeSession ?? buildSession()
-    const updatedSession: ChatSession = {
-      ...session,
-      title:
-        session.messages.length === 0
-          ? createSessionTitle(cleanContent)
-          : session.title,
-      messages: [...session.messages, userMessage, assistantMessage],
-      updatedAt: now,
+    appendMessages(session.id, userMessage, assistantMessage)
+
+    if (session.title === "New chat" && session.messages.length === 0) {
+      const title = createSessionTitle(cleanContent)
+      updateSessionTitle(session.id, title)
+      void updateSession(session.id, { title }).catch(() => undefined)
     }
-
-    const otherSessions = state.sessions.filter(
-      (existingSession) => existingSession.id !== updatedSession.id
-    )
-    const updatedState: SessionState = {
-      sessions: [updatedSession, ...otherSessions],
-      activeSessionId: updatedSession.id,
-    }
-
-    setState(updatedState)
-    saveSessionState(updatedState)
-
-    // Step 3: Send previous messages as conversation history.
-    const history: ChatHistoryMessage[] = session.messages
-      .filter((message) => message.content.trim())
-      .map((message) => ({
-        role: message.role,
-        content: message.content,
-      }))
-      .slice(-20)
 
     try {
       await streamChat(
         {
+          session_id: session.id,
           message: cleanContent,
-          history,
-          use_rag: session.useRag,
+          document_ids: attachments.map((attachment) => attachment.id),
         },
-        (event) =>
-          handleStreamEvent(updatedSession.id, assistantMessage.id, event),
+        (event) => handleStreamEvent(session.id, assistantMessage.id, event),
         requestController.signal
       )
-    } catch {
+    } catch (streamError) {
       if (requestController.signal.aborted) {
-        markAssistantStopped(updatedSession.id, assistantMessage.id)
-        return
+        markAssistantStopped(session.id, assistantMessage.id)
+      } else {
+        markAssistantError(
+          session.id,
+          assistantMessage.id,
+          readError(streamError, "Could not reach the assistant")
+        )
       }
-
-      markAssistantError(
-        updatedSession.id,
-        assistantMessage.id,
-        "Could not reach the assistant. Please try again."
-      )
     } finally {
       if (activeRequest.current === requestController) {
         activeRequest.current = null
@@ -204,6 +219,49 @@ export function useChatSessions() {
 
   function stopGeneration() {
     activeRequest.current?.abort()
+  }
+
+  function replaceSession(session: ChatSession) {
+    setState((current) => ({
+      ...current,
+      sessions: current.sessions.map((item) =>
+        item.id === session.id ? session : item
+      ),
+    }))
+  }
+
+  function updateSessionTitle(sessionId: string, title: string) {
+    setState((current) => ({
+      ...current,
+      sessions: current.sessions.map((session) =>
+        session.id === sessionId ? { ...session, title } : session
+      ),
+    }))
+  }
+
+  function appendMessages(
+    sessionId: string,
+    userMessage: UserMessage,
+    assistantMessage: AssistantMessage
+  ) {
+    setState((current) => {
+      const session = current.sessions.find((item) => item.id === sessionId)
+      if (!session) return current
+
+      const updatedSession = {
+        ...session,
+        loaded: true,
+        updatedAt: userMessage.createdAt,
+        messages: [...session.messages, userMessage, assistantMessage],
+      }
+      return {
+        activeSessionId: sessionId,
+        sessions: [
+          updatedSession,
+          ...current.sessions.filter((item) => item.id !== sessionId),
+        ],
+      }
+    })
   }
 
   function handleStreamEvent(
@@ -237,22 +295,18 @@ export function useChatSessions() {
     }
 
     if (event.type === "complete") {
-      updateAssistantMessage(
-        sessionId,
-        messageId,
-        (message) => ({
-          ...message,
-          content: event.response.answer,
-          status: "complete",
-          confidence: event.response.confidence,
-          followUpQuestions: event.response.follow_up_questions,
-          sources: event.response.sources,
-          tools: event.response.tools_used,
-          model: event.response.model,
-          usedFallback: event.response.used_fallback,
-        }),
-        true
-      )
+      updateAssistantMessage(sessionId, messageId, (message) => ({
+        ...message,
+        content: event.response.answer,
+        status: "complete",
+        activity: undefined,
+        confidence: event.response.confidence,
+        followUpQuestions: event.response.follow_up_questions,
+        sources: event.response.sources,
+        tools: event.response.tools_used,
+        model: event.response.model,
+        usedFallback: event.response.used_fallback,
+      }))
     }
 
     if (event.type === "error") {
@@ -265,100 +319,121 @@ export function useChatSessions() {
     messageId: string,
     errorMessage: string
   ) {
-    updateAssistantMessage(
-      sessionId,
-      messageId,
-      (message) => ({
-        ...message,
-        content: message.content || errorMessage,
-        status: "error",
-        activity: undefined,
-      }),
-      true
-    )
+    updateAssistantMessage(sessionId, messageId, (message) => ({
+      ...message,
+      content: message.content || errorMessage,
+      status: "error",
+      activity: undefined,
+    }))
   }
 
   function markAssistantStopped(sessionId: string, messageId: string) {
-    updateAssistantMessage(
-      sessionId,
-      messageId,
-      (message) => ({
-        ...message,
-        content: message.content || "Response stopped.",
-        status: "complete",
-        activity: undefined,
-      }),
-      true
-    )
+    updateAssistantMessage(sessionId, messageId, (message) => ({
+      ...message,
+      content: message.content || "Response stopped.",
+      status: "stopped",
+      activity: undefined,
+    }))
   }
 
   function updateAssistantMessage(
     sessionId: string,
     messageId: string,
-    update: (message: AssistantMessage) => AssistantMessage,
-    persist = false
+    update: (message: AssistantMessage) => AssistantMessage
   ) {
-    setState((currentState) => {
-      const updatedSessions = currentState.sessions.map((session) => {
+    setState((current) => ({
+      ...current,
+      sessions: current.sessions.map((session) => {
         if (session.id !== sessionId) return session
-
-        const updatedMessages = session.messages.map((message) => {
-          if (message.id !== messageId || message.role !== "assistant") {
-            return message
-          }
-          return update(message)
-        })
-
         return {
           ...session,
-          messages: updatedMessages,
-          updatedAt: new Date().toISOString(),
+          messages: session.messages.map((message) =>
+            message.id === messageId && message.role === "assistant"
+              ? update(message)
+              : message
+          ),
         }
-      })
-
-      const updatedState: SessionState = {
-        ...currentState,
-        sessions: updatedSessions,
-      }
-
-      if (persist) {
-        saveSessionState(updatedState)
-      }
-      return updatedState
-    })
+      }),
+    }))
   }
 
   return {
     sessions: state.sessions,
     activeSession,
     activeSessionId: state.activeSessionId,
+    isLoading,
+    isStreaming,
+    error,
     createSession,
     selectSession,
-    renameSession,
     deleteSession,
     sendMessage,
     stopGeneration,
   }
 }
 
-function createSessionTitle(message: string): string {
-  const maximumLength = 40
-
-  return message.length > maximumLength
-    ? `${message.slice(0, maximumLength)}…`
-    : message
+function mapSessionSummary(session: SessionSummaryDto): ChatSession {
+  return {
+    id: session.id,
+    title: session.title,
+    messages: [],
+    useRag: session.use_rag,
+    createdAt: session.created_at,
+    updatedAt: session.updated_at,
+    loaded: false,
+  }
 }
 
-function buildSession(): ChatSession {
-  const now = new Date().toISOString()
-
+function mapSessionDetail(session: SessionDetailDto): ChatSession {
   return {
-    id: crypto.randomUUID(),
-    title: "New chat",
-    messages: [],
-    documentIds: [],
-    useRag: true,
-    createdAt: now,
-    updatedAt: now,
+    ...mapSessionSummary(session),
+    loaded: true,
+    messages: session.messages.map(mapStoredMessage),
   }
+}
+
+function mapStoredMessage(
+  message: SessionDetailDto["messages"][number]
+): ChatMessage {
+  if (message.role === "user") {
+    return {
+      id: message.id,
+      role: "user",
+      content: message.content,
+      createdAt: message.created_at,
+      attachments: message.documents.map((document) => ({
+        id: document.id,
+        name: document.name,
+        chunkCount: document.chunk_count,
+      })),
+    }
+  }
+
+  const details = message.details
+  const interrupted =
+    message.status === "pending" || message.status === "streaming"
+  return {
+    id: message.id,
+    role: "assistant",
+    content: message.content || (interrupted ? "Response interrupted." : ""),
+    createdAt: message.created_at,
+    status:
+      message.status === "pending" || message.status === "streaming"
+        ? "stopped"
+        : message.status,
+    confidence: details.confidence,
+    followUpQuestions: details.follow_up_questions ?? [],
+    sources: details.sources ?? [],
+    tools: details.tools_used ?? [],
+    model: details.model,
+    usedFallback: details.used_fallback,
+  }
+}
+
+function createSessionTitle(message: string): string {
+  return message.length > 40 ? `${message.slice(0, 40)}…` : message
+}
+
+function readError(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
 }

@@ -46,6 +46,8 @@ interface ChatWorkspaceProps {
   messages: ChatMessageType[]
   isStreaming: boolean
   sessionTitle?: string
+  isLoading: boolean
+  error: string | null
   onSendMessage: (message: string, attachments?: MessageAttachment[]) => void
   onStopGeneration: () => void
 }
@@ -54,6 +56,8 @@ export function ChatWorkspace({
   messages,
   isStreaming,
   sessionTitle,
+  isLoading,
+  error,
   onSendMessage,
   onStopGeneration,
 }: ChatWorkspaceProps) {
@@ -74,7 +78,7 @@ export function ChatWorkspace({
       .map((document) => ({
         id: document.id,
         name: document.name,
-        chunkCount: document.chunkCount,
+        chunkCount: document.chunkCount ?? 0,
       }))
 
     onSendMessage(message, attachments)
@@ -177,7 +181,11 @@ export function ChatWorkspace({
       </header>
 
       <ChatContainerRoot className="min-h-0 flex-1 px-4">
-        {messages.length === 0 ? (
+        {isLoading ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader aria-label="Loading conversation" variant="circular" />
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex h-full w-full items-center justify-center">
             <div className="w-full max-w-3xl pb-20 text-center">
               <Image
@@ -258,6 +266,14 @@ export function ChatWorkspace({
       </ChatContainerRoot>
 
       <div className="shrink-0 px-3 pb-2 sm:px-6">
+        {error ? (
+          <p
+            aria-live="polite"
+            className="mx-auto mb-2 max-w-3xl text-center text-sm text-destructive"
+          >
+            {error}
+          </p>
+        ) : null}
         <form className="mx-auto max-w-3xl" onSubmit={handleSubmit}>
           <FileUpload
             accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf"

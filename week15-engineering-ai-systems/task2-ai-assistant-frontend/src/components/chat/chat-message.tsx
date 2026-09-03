@@ -228,8 +228,6 @@ function AssistantActivity({ message }: { message: AssistantMessage }) {
 }
 
 function SourcePassage({ source }: { source: SourceReference }) {
-  const sourceText = source.text ?? source.text_preview ?? ""
-
   return (
     <Collapsible>
       <CollapsibleTrigger className="group flex w-full cursor-pointer items-start gap-2 text-left">
@@ -245,7 +243,7 @@ function SourcePassage({ source }: { source: SourceReference }) {
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-2 pl-6">
         <Markdown className="prose max-w-none text-sm leading-6 text-foreground">
-          {sourceText}
+          {source.text}
         </Markdown>
       </CollapsibleContent>
     </Collapsible>

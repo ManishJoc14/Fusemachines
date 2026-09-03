@@ -1,26 +1,14 @@
 export type ChatRole = "user" | "assistant"
 export type Confidence = "low" | "medium" | "high"
-export type MessageStatus = "streaming" | "complete" | "error"
-
-export interface ChatHistoryMessage {
-  role: ChatRole
-  content: string
-}
-
-export interface ChatRequest {
-  message: string
-  history: ChatHistoryMessage[]
-  use_rag: boolean
-}
+export type MessageStatus = "streaming" | "complete" | "stopped" | "error"
 
 export interface SourceReference {
-  citation_number?: number
+  citation_number: number
   chunk_id: string
   document_name: string
   chunk_index: number
   score: number
   text: string
-  text_preview?: string
 }
 
 export interface ToolExecution {
@@ -31,7 +19,7 @@ export interface ToolExecution {
 }
 
 export interface PipelineStats {
-  retrieval_strategy: "dense_cosine" | "disabled"
+  retrieval_strategy: "hybrid_rerank" | "dense_cosine" | "disabled"
   retrieved_chunks: number
   cited_chunks: number
   tool_executions: number
@@ -49,27 +37,17 @@ export interface ChatResponse {
 }
 
 export type ChatStreamEvent =
-  | {
-      type: "status"
-      stage: "retrieving" | "generating"
-      message: string
-    }
-  | {
-      type: "tool"
-      tool: ToolExecution
-    }
-  | {
-      type: "delta"
-      content: string
-    }
-  | {
-      type: "complete"
-      response: ChatResponse
-    }
-  | {
-      type: "error"
-      message: string
-    }
+  | { type: "status"; stage: "retrieving" | "generating"; message: string }
+  | { type: "tool"; tool: ToolExecution }
+  | { type: "delta"; content: string }
+  | { type: "complete"; response: ChatResponse }
+  | { type: "error"; message: string }
+
+export interface MessageAttachment {
+  id: string
+  name: string
+  chunkCount: number
+}
 
 interface BaseMessage {
   id: string
@@ -77,15 +55,9 @@ interface BaseMessage {
   createdAt: string
 }
 
-export interface MessageAttachment {
-  id: string
-  name: string
-  chunkCount?: number
-}
-
 export interface UserMessage extends BaseMessage {
   role: "user"
-  attachments?: MessageAttachment[]
+  attachments: MessageAttachment[]
 }
 
 export interface AssistantMessage extends BaseMessage {
@@ -94,7 +66,7 @@ export interface AssistantMessage extends BaseMessage {
   activity?: string
   activities?: string[]
   confidence?: Confidence
-  followUpQuestions?: string[]
+  followUpQuestions: string[]
   sources: SourceReference[]
   tools: ToolExecution[]
   model?: string
@@ -107,8 +79,36 @@ export interface ChatSession {
   id: string
   title: string
   messages: ChatMessage[]
-  documentIds: string[]
   useRag: boolean
   createdAt: string
   updatedAt: string
+  loaded: boolean
+}
+
+export interface SessionSummaryDto {
+  id: string
+  title: string
+  use_rag: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AttachedDocumentDto {
+  id: string
+  name: string
+  chunk_count: number
+}
+
+export interface StoredMessageDto {
+  id: string
+  role: ChatRole
+  status: "pending" | "streaming" | "complete" | "stopped" | "error"
+  content: string
+  details: Partial<ChatResponse>
+  created_at: string
+  documents: AttachedDocumentDto[]
+}
+
+export interface SessionDetailDto extends SessionSummaryDto {
+  messages: StoredMessageDto[]
 }

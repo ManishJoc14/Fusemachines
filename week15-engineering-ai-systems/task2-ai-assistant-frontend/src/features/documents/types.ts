@@ -5,6 +5,7 @@ export interface IngestionResult {
   document_name: string
   character_count: number
   chunk_count: number
+  expires_at: string
 }
 
 export interface DocumentUploadResult {
