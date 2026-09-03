@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -21,11 +22,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings.app_log_level)
     container = ApplicationContainer(settings)
     app.state.container = container
+    stop_cleanup = asyncio.Event()
+    cleanup_task = (
+        asyncio.create_task(
+            container.document_cleanup_service.run_periodically(stop_cleanup)
+        )
+        if settings.document_cleanup_interval_seconds > 0
+        else None
+    )
     logger.info("Application started with %s backend", settings.llm_backend)
 
     try:
         yield
     finally:
+        stop_cleanup.set()
+        if cleanup_task is not None:
+            await cleanup_task
         await container.close()
         logger.info("Application shutdown complete")
 

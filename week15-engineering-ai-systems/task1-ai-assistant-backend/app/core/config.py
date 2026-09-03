@@ -90,6 +90,8 @@ class Settings(BaseSettings):
     max_upload_size_mb: int = Field(default=10, gt=0)
     max_batch_upload_files: int = Field(default=10, gt=0, le=15)
     document_retention_days: int = Field(default=10, ge=1, le=365)
+    document_cleanup_interval_seconds: int = Field(default=3_600, ge=0)
+    document_cleanup_batch_size: int = Field(default=100, ge=1, le=1_000)
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",

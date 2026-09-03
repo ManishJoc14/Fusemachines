@@ -15,6 +15,7 @@ from app.rag.retriever import Retriever
 from app.rag.vector_store import VectorStore
 from app.services.auth import AuthService
 from app.services.chat import ChatService
+from app.services.document_cleanup import DocumentCleanupService
 from app.services.ingestion import IngestionService
 from app.services.rate_limit import RateLimiter
 from app.services.sessions import SessionService
@@ -51,6 +52,12 @@ class ApplicationContainer:
             session_days=settings.auth_session_days,
         )
         self.session_service = SessionService(self.database)
+        self.document_cleanup_service = DocumentCleanupService(
+            self.database,
+            self.vector_store,
+            batch_size=settings.document_cleanup_batch_size,
+            interval_seconds=settings.document_cleanup_interval_seconds,
+        )
 
         # Step 2: Assemble the retrieval pipeline.
         embeddings = EmbeddingService(

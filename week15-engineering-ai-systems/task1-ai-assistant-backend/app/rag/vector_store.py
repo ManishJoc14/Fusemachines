@@ -164,6 +164,11 @@ class VectorStore:
         # Step 4: Write bounded batches instead of one unbounded request.
         await self._upsert_batches(points)
 
+    async def delete_document(self, user_id: str, document_id: str) -> None:
+        """Delete every vector belonging to one user's document."""
+
+        await self._delete_document(user_id, document_id)
+
     async def _delete_document(self, user_id: str, document_id: str) -> None:
         if not await self._client.collection_exists(self._collection):
             self._collection_ready = False

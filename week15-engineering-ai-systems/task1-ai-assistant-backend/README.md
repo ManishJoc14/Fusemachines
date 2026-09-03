@@ -15,6 +15,7 @@ through Hugging Face or an OpenAI-compatible model served with vLLM.
 - Local sentence-transformer embeddings and Qdrant vector search
 - Verifiable document citations in chat responses
 - Redis-backed per-user chat rate limiting
+- Automatic removal of expired PostgreSQL documents and Qdrant vectors
 - Docker image and optional GPU vLLM Compose profile
 
 The detailed system diagram is in [Architecture](docs/architecture.md).
@@ -138,6 +139,17 @@ Chat history is loaded from PostgreSQL rather than accepted from the client.
 Only documents owned by the authenticated user and attached to the session can
 be retrieved. The response reports citations, executed tools, selected model,
 fallback status, and pipeline statistics.
+
+## Clean up expired documents
+
+The API checks for expired documents when it starts and then at the configured
+interval. Run the same bounded cleanup manually with:
+
+```bash
+python -m scripts.cleanup_documents
+```
+
+Set `DOCUMENT_CLEANUP_INTERVAL_SECONDS=0` to disable the background worker.
 
 ## LLM backends
 
