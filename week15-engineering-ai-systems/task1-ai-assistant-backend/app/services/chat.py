@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal, cast
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assistant.agent import (
@@ -251,6 +251,7 @@ class ChatService:
             )
             .order_by(
                 StoredChatMessage.created_at.desc(),
+                case((StoredChatMessage.role == "user", 0), else_=1).desc(),
                 StoredChatMessage.id.desc(),
             )
             .limit(20)

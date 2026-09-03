@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 
-from sqlalchemy import Select, delete, select
+from sqlalchemy import Select, case, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import ChatMessage, ChatSession, Document, MessageDocument
@@ -63,7 +63,11 @@ class SessionService:
                 await database_session.scalars(
                     select(ChatMessage)
                     .where(ChatMessage.session_id == session_id)
-                    .order_by(ChatMessage.created_at, ChatMessage.id)
+                    .order_by(
+                        ChatMessage.created_at,
+                        case((ChatMessage.role == "user", 0), else_=1),
+                        ChatMessage.id,
+                    )
                 )
             ).all()
             documents_by_message = await self._load_documents(

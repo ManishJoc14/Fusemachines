@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +19,7 @@ services:
   redis:
     image: redis:8-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -40,7 +40,7 @@ services:
       VLLM_BASE_URL: http://vllm:8000/v1
       DOCUMENTS_DIRECTORY: /app/data/documents
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -63,6 +63,21 @@ services:
       retries: 3
       start_period: 20s
 
+  frontend:
+    build:
+      context: ../task2-ai-assistant-frontend
+      args:
+        BACKEND_URL: http://api:8000
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+    environment:
+      BACKEND_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
   # Start this optional service with: docker compose --profile local up --build
   vllm:
     image: vllm/vllm-openai:v0.28.0
@@ -84,7 +99,7 @@ services:
       - --tool-call-parser
       - hermes
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     volumes:
       - huggingface_cache:/root/.cache/huggingface
     ipc: host
