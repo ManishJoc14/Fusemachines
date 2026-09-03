@@ -1,61 +1,124 @@
 # Architecture
 
+The AI assistant has two applications: a Next.js frontend and a FastAPI
+backend. The frontend handles the user experience and local chat sessions. The
+backend owns RAG, tool execution, model access, and document ingestion.
+
+## Overall system
+
 ```mermaid
 flowchart LR
-    User[API client] --> FastAPI[FastAPI endpoints]
+    User["User"] --> Frontend["Next.js frontend"]
+    Frontend <-->|"HTTP and SSE"| Backend["FastAPI backend"]
 
-    FastAPI --> Ingestion[Document ingestion service]
-    Ingestion --> Loader[MD / TXT / PDF loader]
-    Loader --> Chunker[Overlapping text chunker]
-    Chunker --> Embeddings[Sentence-transformer embeddings]
-    Embeddings --> Qdrant[(Qdrant Cloud)]
+    Backend --> RAG["RAG pipeline"]
+    Backend --> Agent["Assistant agent"]
 
-    FastAPI --> Chat[Chat service]
-    Chat --> Retriever[Dense retriever]
-    Retriever --> Embeddings
-    Qdrant --> Retriever
-    Retriever --> Context[Bounded document context]
-    Context --> Agent[Assistant agent]
-
-    Agent --> Tools{Tool required?}
-    Tools -->|yes| Registry[Tool registry]
-    Registry --> Calculator[Calculator]
-    Registry --> Time[UTC time]
-    Registry --> Weather[Open-Meteo weather]
-    Calculator --> Agent
-    Time --> Agent
-    Weather --> Agent
-
-    Tools -->|no / tools complete| Structured[JSON Schema response]
-    Agent --> LLM{Configured backend}
-    LLM --> HFPrimary[Hugging Face primary]
-    HFPrimary -. failure .-> HFFallback[Hugging Face fallback]
-    LLM --> VLLM[vLLM OpenAI server]
-    Colab[Colab GPU] --> VLLM
-    Ngrok[Protected ngrok tunnel] --> VLLM
-    LLM --> Agent
-    Structured --> Chat
-    Chat --> Response[Answer + sources + tool metadata]
-    Response --> User
+    RAG <--> Qdrant["Qdrant Cloud"]
+    Agent --> Tools["External tools"]
+    Agent --> Models["LLM providers"]
 ```
 
-## Request flow
+## Frontend and API
 
-1. The chat service embeds the question and retrieves relevant chunks from
-   Qdrant when RAG is enabled.
-2. Retrieved text is placed inside explicit context boundaries in the system
-   prompt.
-3. The agent asks the configured model whether a tool is required.
-4. Requested tools are validated, executed, and returned to the same model.
-5. Tool selection and structured generation use separate model calls because
-   some OpenAI-compatible providers reject JSON mode combined with tools.
-6. The final response is validated against `AssistantOutput` and invented chunk
-   IDs are removed before citations reach the client.
+```mermaid
+flowchart LR
+    UI["Chat interface"] --> Sessions["Session state"]
+    Sessions --> Storage["Browser localStorage"]
 
-## Deployment views
+    UI -->|"Upload files"| Documents["Documents API"]
+    UI -->|"Send message"| Chat["Streaming chat API"]
+    Chat -->|"Status events"| UI
+    Chat -->|"Tool events"| UI
+    Chat -->|"Answer deltas"| UI
+    Chat -->|"Final metadata"| UI
+```
 
-The default development and Docker path uses Hugging Face inference with
-Qdrant Cloud. The GPU path runs vLLM either from the optional Compose profile on
-an NVIDIA host or from Google Colab through a protected ngrok tunnel. Both
-backends expose the same OpenAI-compatible interface, so the application code
-switches through environment configuration rather than backend-specific routes.
+The frontend aborts the active streaming request when the user presses the stop
+button. Any answer text already received remains in the session.
+
+## Document ingestion and retrieval
+
+```mermaid
+flowchart LR
+    Upload["MD, TXT, or PDF"] --> Validate["Validate and load"]
+    Validate --> Chunk["Overlapping chunks"]
+    Chunk --> Cloud["Qdrant Cloud Inference"]
+
+    Cloud --> Dense["Dense vectors"]
+    Cloud --> Sparse["BM25 sparse vectors"]
+    Cloud --> ColBERT["ColBERT vectors"]
+    Dense --> Collection["Qdrant collection"]
+    Sparse --> Collection
+    ColBERT --> Collection
+
+    Cloud -. "unavailable" .-> Local["Local MiniLM embeddings"]
+    Local --> Collection
+
+    Question["User question"] --> Hybrid["Dense and sparse retrieval"]
+    Collection --> Hybrid
+    Hybrid --> Rerank["ColBERT reranking"]
+    Rerank --> Context["Top document chunks"]
+
+    Question -. "cloud inference unavailable" .-> QueryVector["Local MiniLM query embedding"]
+    QueryVector --> DenseFallback["Dense cosine search"]
+    Collection --> DenseFallback
+    DenseFallback --> Context
+```
+
+Single-file and batch upload endpoints use the same ingestion pipeline. Batch
+uploads have bounded concurrency, and every file receives its own result.
+
+## Assistant agent
+
+```mermaid
+flowchart TD
+    Request["Question, history, and RAG context"] --> Selection["LLM tool-selection call"]
+
+    Selection -->|"Tool requested"| Registry["Tool registry"]
+    Registry --> Calculator["Calculator"]
+    Registry --> Time["Current UTC time"]
+    Registry --> Weather["Open-Meteo weather"]
+    Registry --> Monid["Monid external APIs"]
+    Registry -->|"Validated tool result"| Selection
+
+    Selection -->|"No more tools"| Answer["Stream answer text"]
+    Answer --> Metadata["Generate structured metadata"]
+    Metadata --> Validate["Validate citations and schema"]
+    Validate --> Response["Answer, sources, tools, and model details"]
+```
+
+Tool selection and structured output use separate model calls because some
+OpenAI-compatible providers do not allow tool calling and JSON mode together.
+The loop is bounded by `LLM_MAX_TOOL_ITERATIONS`.
+
+## Model routing
+
+```mermaid
+flowchart LR
+    Client["OpenAI-compatible LLM client"] --> Choice{"LLM_BACKEND"}
+
+    Choice -->|"huggingface"| Primary["Hugging Face primary model"]
+    Primary -. "request failure" .-> Fallback["Hugging Face fallback model"]
+
+    Choice -->|"vllm"| VLLM["vLLM endpoint"]
+    VLLM --> LocalGPU["Local NVIDIA host"]
+    VLLM --> Tunnel["Colab GPU through ngrok"]
+```
+
+The backend may use the fallback model only before streamed output begins. It
+does not combine a partial response from one model with output from another.
+
+## Deployment
+
+```mermaid
+flowchart LR
+    Browser["Browser"] --> Web["Next.js application"]
+    Web --> API["FastAPI container"]
+    API --> Qdrant["Qdrant Cloud"]
+    API --> Hosted["Hosted LLM and tools"]
+    API -. "optional Docker profile" .-> GPU["vLLM GPU container"]
+```
+
+The default Docker Compose command starts only FastAPI. vLLM is in the optional
+`local` profile so it cannot start accidentally on a development laptop.
