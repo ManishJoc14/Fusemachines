@@ -20,6 +20,25 @@ through Hugging Face or an OpenAI-compatible model served with vLLM.
 
 The detailed system diagram is in [Architecture](docs/architecture.md).
 
+## Request flow
+
+```mermaid
+flowchart LR
+  Client["Next.js client"] --> Auth["Authenticated FastAPI route"]
+  Auth --> User["user_id"]
+  User --> Session["Owned session"]
+  User --> Documents["Owned documents"]
+  Session --> Chat["Chat service"]
+  Documents --> Chat
+  Chat --> RAG["RAG retriever"]
+  Chat --> Agent["Tool loop + LLM"]
+  Agent --> Result["Persisted answer"]
+```
+
+The authenticated `user_id` is passed into session, chat, and document use
+cases. It is the ownership boundary for PostgreSQL records and Qdrant points;
+clients cannot select another user's sessions or documents by changing an ID.
+
 ## Project structure
 
 ```text
@@ -117,10 +136,14 @@ python scripts/ingest_documents.py \
   --user-id USER_UUID
 ```
 
-The pipeline validates the file, extracts text, creates overlapping chunks,
-and stores user-scoped vectors in Qdrant. Qdrant Cloud inference performs
-hybrid retrieval and reranking when available; local dense embeddings are the
-fallback.
+The ingestion pipeline receives the target `user_id`, validates the file,
+extracts text, creates overlapping chunks, and stores both PostgreSQL metadata
+and user-scoped Qdrant points. Qdrant Cloud inference performs hybrid retrieval
+and reranking when available; local dense embeddings are the fallback.
+
+Expired documents are removed from both PostgreSQL and Qdrant. The background
+cleanup worker runs at startup and at the configured interval; the same bounded
+operation can be run manually with the cleanup script.
 
 ## Ask a question
 
@@ -136,9 +159,35 @@ curl -X POST http://localhost:8000/api/v1/chat \
 ```
 
 Chat history is loaded from PostgreSQL rather than accepted from the client.
-Only documents owned by the authenticated user and attached to the session can
-be retrieved. The response reports citations, executed tools, selected model,
+Before retrieval, the chat service verifies that requested documents belong to
+the authenticated user and are attached to the user's session. The retriever
+receives only those validated document IDs and cannot access another user's
+documents. The response reports citations, executed tools, selected model,
 fallback status, and pipeline statistics.
+
+The agent can perform several bounded tool-planning rounds. A failed tool call
+is returned as a tool result so the model can retry or choose another tool. The
+final streamed answer is generated in a separate tool-free request, followed by
+a structured metadata request.
+
+## Streaming chat
+
+`POST /api/v1/chat/stream` returns Server-Sent Events. Events are emitted in
+this order as work becomes available:
+
+| Event | Purpose |
+| --- | --- |
+| `status` | Retrieval or generation progress |
+| `tool` | Completed tool result, including failures |
+| `delta` | Incremental final answer text |
+| `complete` | Validated answer, citations, tools, model, and statistics |
+| `error` | Request, retrieval, or model failure |
+
+The backend persists a pending assistant message before generation. On normal
+completion it saves the final response. On cancellation it saves received text
+with status `stopped`; on failure it saves received text with status `error`.
+The final `complete` event is emitted only after answer metadata passes schema
+validation.
 
 ## Clean up expired documents
 
@@ -161,8 +210,9 @@ HF_MODEL=openai/gpt-oss-20b:groq
 HF_FALLBACK_MODEL=deepseek-ai/DeepSeek-V4-Flash-0731:deepinfra
 ```
 
-If the primary provider has a connection, timeout, rate-limit, or server
-failure, the client retries through the configured fallback model.
+If the primary provider has an API, connection, timeout, rate-limit, or server
+failure before streamed content is received, the client retries through the
+configured fallback model. Partial output is never combined across models.
 
 ### vLLM on Colab
 
