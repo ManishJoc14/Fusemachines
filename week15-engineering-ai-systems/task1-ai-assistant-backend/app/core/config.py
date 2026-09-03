@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     )
     database_echo: bool = False
 
+    google_client_id: str | None = None
+    auth_cookie_name: str = "assistant_session"
+    auth_session_days: int = Field(default=30, ge=1, le=365)
+    auth_cookie_secure: bool = False
+    auth_cookie_samesite: Literal["lax", "strict"] = "lax"
+
     llm_backend: LLMBackend = LLMBackend.HUGGINGFACE
     hf_token: SecretStr | None = None
     hf_base_url: AnyHttpUrl = AnyHttpUrl("https://router.huggingface.co/v1")

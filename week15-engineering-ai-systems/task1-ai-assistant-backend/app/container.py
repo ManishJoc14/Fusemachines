@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from app.assistant.agent import AssistantAgent
+from app.auth.google import GoogleTokenVerifier
 from app.core.config import Settings
 from app.db.session import Database
 from app.llm.client import LLMClient
@@ -11,6 +12,7 @@ from app.rag.embeddings import EmbeddingService
 from app.rag.loader import DocumentLoader
 from app.rag.retriever import Retriever
 from app.rag.vector_store import VectorStore
+from app.services.auth import AuthService
 from app.services.chat import ChatService
 from app.services.ingestion import IngestionService
 from app.tools.builtin import create_default_tool_registry
@@ -20,12 +22,24 @@ class ApplicationContainer:
     """Construct and own the shared services used by API requests."""
 
     def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
         # Step 1: Create clients shared for the application's lifetime.
         self.llm_client = LLMClient(settings)
         self.vector_store = VectorStore(settings)
         self.database = Database(
             settings.database_url.get_secret_value(),
             echo=settings.database_echo,
+        )
+        google_verifier = (
+            GoogleTokenVerifier(settings.google_client_id)
+            if settings.google_client_id
+            else None
+        )
+        self.auth_service = AuthService(
+            self.database,
+            google_verifier,
+            session_days=settings.auth_session_days,
         )
 
         # Step 2: Assemble the retrieval pipeline.

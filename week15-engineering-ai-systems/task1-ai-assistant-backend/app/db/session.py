@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -24,6 +25,7 @@ class Database:
             expire_on_commit=False,
         )
 
+    @asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncSession]:
         async with self._sessions() as session:
             yield session

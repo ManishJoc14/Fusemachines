@@ -34,6 +34,25 @@ class User(TimestampMixin, Base):
     avatar_url: Mapped[str | None] = mapped_column(Text)
 
 
+class AuthSession(TimestampMixin, Base):
+    """Store the hash of an opaque browser session token."""
+
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+    )
+
+
 class ChatSession(TimestampMixin, Base):
     __tablename__ = "chat_sessions"
     __table_args__ = (Index("ix_chat_sessions_user_updated", "user_id", "updated_at"),)
