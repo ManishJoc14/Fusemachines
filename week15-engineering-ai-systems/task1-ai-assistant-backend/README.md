@@ -38,6 +38,7 @@ scripts/          # Command-line document ingestion
 ## Requirements
 
 - Python 3.11 or 3.12
+- PostgreSQL 15 or newer
 - A Hugging Face access token, or a running vLLM endpoint
 - A Qdrant Cloud cluster
 - An ngrok account only when exposing vLLM from Colab
@@ -59,13 +60,14 @@ On Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Fill in `HF_TOKEN`, `QDRANT_URL`, and `QDRANT_API_KEY`. Keep `.env` private.
-Then install and start the application:
+Fill in `DATABASE_URL`, `HF_TOKEN`, `QDRANT_URL`, and `QDRANT_API_KEY`. Keep
+`.env` private. Then install the application and apply its database migrations:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
@@ -75,8 +77,18 @@ PowerShell activation uses:
 .venv\Scripts\Activate.ps1
 ```
 
-Open the API documentation at <http://localhost:8000/docs> and check health at
+Open the API documentation at <http://localhost:8000/api/docs> and check health at
 <http://localhost:8000/api/v1/health>.
+
+To run PostgreSQL through Docker while developing locally:
+
+```bash
+docker compose up -d db
+alembic upgrade head
+```
+
+Alembic owns database schema changes. Do not create application tables with
+`Base.metadata.create_all()`.
 
 ## Ingest a document
 

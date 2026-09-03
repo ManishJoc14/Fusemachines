@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     app_api_v1_prefix: str = Field(default="/api/v1", pattern=r"^/")
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
+    database_url: SecretStr = SecretStr(
+        "postgresql+asyncpg://postgres:postgres@localhost:5433/assistant"
+    )
+    database_echo: bool = False
+
     llm_backend: LLMBackend = LLMBackend.HUGGINGFACE
     hf_token: SecretStr | None = None
     hf_base_url: AnyHttpUrl = AnyHttpUrl("https://router.huggingface.co/v1")
@@ -89,9 +94,7 @@ class Settings(BaseSettings):
         if self.rag_chunk_overlap >= self.rag_chunk_size:
             raise ValueError("RAG_CHUNK_OVERLAP must be smaller than RAG_CHUNK_SIZE")
         if self.rag_candidate_top_k < self.rag_retrieval_top_k:
-            raise ValueError(
-                "RAG_CANDIDATE_TOP_K must be at least RAG_RETRIEVAL_TOP_K"
-            )
+            raise ValueError("RAG_CANDIDATE_TOP_K must be at least RAG_RETRIEVAL_TOP_K")
 
         return self
 

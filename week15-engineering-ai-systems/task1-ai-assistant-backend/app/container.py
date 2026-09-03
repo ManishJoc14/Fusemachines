@@ -4,6 +4,7 @@ import asyncio
 
 from app.assistant.agent import AssistantAgent
 from app.core.config import Settings
+from app.db.session import Database
 from app.llm.client import LLMClient
 from app.rag.chunker import TextChunker
 from app.rag.embeddings import EmbeddingService
@@ -22,6 +23,10 @@ class ApplicationContainer:
         # Step 1: Create clients shared for the application's lifetime.
         self.llm_client = LLMClient(settings)
         self.vector_store = VectorStore(settings)
+        self.database = Database(
+            settings.database_url.get_secret_value(),
+            echo=settings.database_echo,
+        )
 
         # Step 2: Assemble the retrieval pipeline.
         embeddings = EmbeddingService(
@@ -59,4 +64,5 @@ class ApplicationContainer:
         await asyncio.gather(
             self.llm_client.close(),
             self.vector_store.close(),
+            self.database.close(),
         )

@@ -1,14 +1,35 @@
 services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: assistant
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d assistant"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   api:
     build:
       context: .
     env_file:
       - .env
     environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/assistant
       VLLM_BASE_URL: http://vllm:8000/v1
       DOCUMENTS_DIRECTORY: /app/data/documents
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - ./data/documents:/app/data/documents:ro
       - huggingface_cache:/app/.cache/huggingface
@@ -62,3 +83,4 @@ services:
 
 volumes:
   huggingface_cache:
+  postgres_data:
