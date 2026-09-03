@@ -14,6 +14,7 @@ export default function LoginPage() {
   const router = useRouter()
   const { status, setAuthenticatedUser } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  const [isSigningIn, setIsSigningIn] = useState(false)
 
   useEffect(() => {
     if (status === "authenticated") router.replace("/chat")
@@ -26,6 +27,7 @@ export default function LoginPage() {
     }
 
     setError(null)
+    setIsSigningIn(true)
     try {
       const user = await loginWithGoogle(credential)
       setAuthenticatedUser(user)
@@ -34,11 +36,12 @@ export default function LoginPage() {
       setError(
         loginError instanceof Error ? loginError.message : "Sign in failed"
       )
+      setIsSigningIn(false)
     }
   }
 
-  if (status === "loading" || status === "authenticated") {
-    return <FullPageLoader />
+  if (status === "loading" || status === "authenticated" || isSigningIn) {
+    return <FullPageLoader message="Signing you in…" />
   }
 
   return (
@@ -92,10 +95,16 @@ export default function LoginPage() {
   )
 }
 
-function FullPageLoader() {
+function FullPageLoader({ message }: { message: string }) {
   return (
     <main className="flex min-h-svh items-center justify-center">
-      <Loader aria-label="Checking authentication" variant="circular" />
+      <div className="flex flex-col items-center gap-3 text-center">
+        <Loader aria-label={message} variant="circular" />
+        <p className="text-sm text-muted-foreground">{message}</p>
+        <p className="text-xs text-muted-foreground/80">
+          The server may take up to a minute to wake after inactivity.
+        </p>
+      </div>
     </main>
   )
 }
