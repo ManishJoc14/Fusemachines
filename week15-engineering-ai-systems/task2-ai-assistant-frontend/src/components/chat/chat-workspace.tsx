@@ -76,7 +76,7 @@ export function ChatWorkspace({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!message.trim() || isStreaming) return
+    if (!message.trim() || isStreaming || isUploading) return
 
     const attachments = uploadedDocuments
       .filter((document) => document.status === "ready")
@@ -368,7 +368,7 @@ export function ChatWorkspace({
 
               <InputGroupTextarea
                 className="min-h-16 px-3"
-                disabled={isStreaming || isUploading}
+                disabled={isStreaming}
                 id="chat-message"
                 onChange={(event) =>
                   setMessage(event.target.value)
