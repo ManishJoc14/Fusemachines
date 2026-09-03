@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { GoogleLogin } from "@react-oauth/google"
+import { LockKeyhole } from "lucide-react"
 
 import assistantLogo from "@/app/icon1.png"
 import { Loader } from "@/components/ui/loader"
@@ -45,52 +46,71 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center px-5 py-10">
-      <section className="w-full max-w-sm rounded-2xl border bg-card p-8 shadow-sm">
-        <Image
-          alt="AI Assistant"
-          className="mx-auto size-11 rounded-full"
-          height={44}
-          priority
-          src={assistantLogo}
-          width={44}
-        />
-        <div className="mt-5 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to access your chats and documents.
-          </p>
-        </div>
+    <main className="relative isolate flex min-h-svh items-center justify-center overflow-hidden bg-background px-5 py-12">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(120,119,198,0.10),transparent_42%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_38%)]"
+      />
 
-        <div className="mt-7 flex justify-center">
-          <GoogleLogin
-            onError={() => setError("Google sign in could not be started.")}
-            onSuccess={(response) =>
-              handleGoogleCredential(response.credential)
-            }
-            shape="pill"
-            size="large"
-            text="continue_with"
-            theme="outline"
-            width="300"
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex items-center justify-center gap-2.5">
+          <Image
+            alt=""
+            className="size-8 rounded-lg"
+            height={32}
+            priority
+            src={assistantLogo}
+            width={32}
           />
+          <span className="text-sm font-semibold tracking-tight">
+            AI Assistant
+          </span>
         </div>
 
-        {error ? (
-          <p
-            aria-live="polite"
-            className="mt-4 text-center text-sm text-destructive"
-          >
-            {error}
-          </p>
-        ) : null}
+        <section className="rounded-2xl border bg-card p-7 shadow-sm sm:p-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Continue to your workspace
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Your chats, documents, and assistant history stay connected to
+              your account.
+            </p>
+          </div>
 
-        <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
+          <div className="mt-7 flex min-h-10 justify-center">
+            <GoogleLogin
+              onError={() => setError("Google sign in could not be started.")}
+              onSuccess={(response) =>
+                handleGoogleCredential(response.credential)
+              }
+              shape="pill"
+              size="large"
+              text="continue_with"
+              theme="outline"
+              width="300"
+            />
+          </div>
+
+          {error ? (
+            <p
+              aria-live="polite"
+              className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive"
+            >
+              {error}
+            </p>
+          ) : null}
+
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <LockKeyhole aria-hidden="true" className="size-3.5" />
+            <span>Secure sign-in with Google</span>
+          </div>
+        </section>
+
+        <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">
           By continuing, you agree to use the assistant responsibly.
         </p>
-      </section>
+      </div>
     </main>
   )
 }

@@ -31,9 +31,9 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group"
 import { Loader } from "@/components/ui/loader"
+import { PromptSuggestion } from "@/components/ui/prompt-suggestion"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { PromptSuggestion } from "@/components/ui/prompt-suggestion"
 
 import type {
   ChatMessage as ChatMessageType,
@@ -48,7 +48,10 @@ interface ChatWorkspaceProps {
   sessionTitle?: string
   isLoading: boolean
   error: string | null
-  onSendMessage: (message: string, attachments?: MessageAttachment[]) => void
+  onSendMessage: (
+    message: string,
+    attachments?: MessageAttachment[]
+  ) => void
   onStopGeneration: () => void
 }
 
@@ -65,12 +68,14 @@ export function ChatWorkspace({
   const [isUploading, setIsUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState<string | null>(null)
   const [uploadFailed, setUploadFailed] = useState(false)
-  const [uploadedDocuments, setUploadedDocuments] = useState<SessionDocument[]>(
-    []
-  )
+
+  const [uploadedDocuments, setUploadedDocuments] = useState<
+    SessionDocument[]
+  >([])
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
     if (!message.trim() || isStreaming) return
 
     const attachments = uploadedDocuments
@@ -82,6 +87,7 @@ export function ChatWorkspace({
       }))
 
     onSendMessage(message, attachments)
+
     setMessage("")
     setUploadedDocuments([])
     setUploadMessage(null)
@@ -105,15 +111,22 @@ export function ChatWorkspace({
       uploadedAt: new Date().toISOString(),
     }))
 
-    setUploadedDocuments((current) => [...current, ...pendingDocuments])
+    setUploadedDocuments((current) => [
+      ...current,
+      ...pendingDocuments,
+    ])
+
     setIsUploading(true)
     setUploadFailed(false)
+
     setUploadMessage(
-      `Uploading ${files.length} document${files.length === 1 ? "" : "s"}...`
+      `Uploading ${files.length} document${files.length === 1 ? "" : "s"
+      }...`
     )
 
     try {
       const result = await uploadDocuments(files)
+
       const failedNames = result.files
         .filter((file) => file.status === "error")
         .map((file) => file.document_name)
@@ -123,10 +136,15 @@ export function ChatWorkspace({
           const resultIndex = pendingDocuments.findIndex(
             (pending) => pending.id === document.id
           )
+
           if (resultIndex === -1) return document
 
           const fileResult = result.files[resultIndex]
-          if (fileResult.status === "error" || !fileResult.ingestion) {
+
+          if (
+            fileResult.status === "error" ||
+            !fileResult.ingestion
+          ) {
             return {
               ...document,
               status: "error",
@@ -138,29 +156,43 @@ export function ChatWorkspace({
             ...document,
             id: fileResult.ingestion.document_id,
             status: "ready",
-            characterCount: fileResult.ingestion.character_count,
+            characterCount:
+              fileResult.ingestion.character_count,
             chunkCount: fileResult.ingestion.chunk_count,
           }
         })
       )
 
       setUploadFailed(result.failed_files > 0)
+
       setUploadMessage(
         result.failed_files === 0
-          ? `${result.successful_files} document${result.successful_files === 1 ? "" : "s"} ready`
-          : `${result.successful_files} ready; failed: ${failedNames.join(", ")}`
+          ? `${result.successful_files} document${result.successful_files === 1 ? "" : "s"
+          } ready`
+          : `${result.successful_files} ready; failed: ${failedNames.join(
+            ", "
+          )}`
       )
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Document upload failed"
+        error instanceof Error
+          ? error.message
+          : "Document upload failed"
 
       setUploadedDocuments((current) =>
         current.map((document) =>
-          pendingDocuments.some((pending) => pending.id === document.id)
-            ? { ...document, status: "error", error: errorMessage }
+          pendingDocuments.some(
+            (pending) => pending.id === document.id
+          )
+            ? {
+              ...document,
+              status: "error",
+              error: errorMessage,
+            }
             : document
         )
       )
+
       setUploadFailed(true)
       setUploadMessage(errorMessage)
     } finally {
@@ -169,23 +201,26 @@ export function ChatWorkspace({
   }
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <section className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      {/* Header */}
       <header className="flex h-14 shrink-0 items-center px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger aria-label="Open chat sessions" />
-          <Separator className="mt-2 mr-1 h-4" orientation="vertical" />
+
+          <Separator
+            className="mr-1 h-4"
+            orientation="vertical"
+          />
+
           <h1 className="truncate text-sm font-semibold">
             {sessionTitle ?? "AI Assistant"}
           </h1>
         </div>
       </header>
 
+      {/* Main chat area */}
       <ChatContainerRoot className="min-h-0 flex-1 px-4">
-        {isLoading ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader aria-label="Loading conversation" variant="circular" />
-          </div>
-        ) : messages.length === 0 ? (
+        {!isLoading && messages.length === 0 ? (
           <div className="flex h-full w-full items-center justify-center">
             <div className="w-full max-w-3xl pb-20 text-center">
               <Image
@@ -221,7 +256,9 @@ export function ChatWorkspace({
                 <PromptSuggestion
                   disabled={isStreaming}
                   onClick={() =>
-                    onSendMessage("Tell me about recent Spiderman movie.")
+                    onSendMessage(
+                      "Tell me about recent Spiderman movie."
+                    )
                   }
                   size="sm"
                 >
@@ -231,7 +268,9 @@ export function ChatWorkspace({
                 <PromptSuggestion
                   disabled={isStreaming}
                   onClick={() =>
-                    onSendMessage("What is the current weather in Kathmandu?")
+                    onSendMessage(
+                      "What is the current weather in Kathmandu?"
+                    )
                   }
                   size="sm"
                 >
@@ -241,7 +280,9 @@ export function ChatWorkspace({
                 <PromptSuggestion
                   disabled={isStreaming}
                   onClick={() =>
-                    onSendMessage("Calculate the cube root of 1367631.")
+                    onSendMessage(
+                      "Calculate the cube root of 1367631."
+                    )
                   }
                   size="sm"
                 >
@@ -250,7 +291,7 @@ export function ChatWorkspace({
               </div>
             </div>
           </div>
-        ) : (
+        ) : !isLoading ? (
           <ChatContainerContent className="mx-auto w-full max-w-3xl gap-8 py-6">
             {messages.map((chatMessage) => (
               <ChatMessage
@@ -260,11 +301,13 @@ export function ChatWorkspace({
                 suggestionsDisabled={isStreaming}
               />
             ))}
+
             <ChatContainerScrollAnchor />
           </ChatContainerContent>
-        )}
+        ) : null}
       </ChatContainerRoot>
 
+      {/* Input */}
       <div className="shrink-0 px-3 pb-2 sm:px-6">
         {error ? (
           <p
@@ -274,7 +317,11 @@ export function ChatWorkspace({
             {error}
           </p>
         ) : null}
-        <form className="mx-auto max-w-3xl" onSubmit={handleSubmit}>
+
+        <form
+          className="mx-auto max-w-3xl"
+          onSubmit={handleSubmit}
+        >
           <FileUpload
             accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf"
             disabled={isUploading}
@@ -282,8 +329,15 @@ export function ChatWorkspace({
           >
             <FileUploadContent>
               <div className="flex flex-col items-center gap-3 rounded-2xl border bg-card px-8 py-6 shadow-lg">
-                <FileUp aria-hidden="true" className="size-7" />
-                <p className="font-medium">Drop documents to upload</p>
+                <FileUp
+                  aria-hidden="true"
+                  className="size-7"
+                />
+
+                <p className="font-medium">
+                  Drop documents to upload
+                </p>
+
                 <p className="text-sm text-muted-foreground">
                   Markdown, text, or PDF
                 </p>
@@ -297,41 +351,60 @@ export function ChatWorkspace({
                   className="flex-wrap gap-2"
                 >
                   {uploadedDocuments.map((document) => (
-                    <DocumentChip document={document} key={document.id} />
+                    <DocumentChip
+                      document={document}
+                      key={document.id}
+                    />
                   ))}
                 </InputGroupAddon>
               ) : null}
 
-              <label className="sr-only" htmlFor="chat-message">
+              <label
+                className="sr-only"
+                htmlFor="chat-message"
+              >
                 Message the assistant
               </label>
+
               <InputGroupTextarea
                 className="min-h-16 px-3"
                 disabled={isStreaming || isUploading}
                 id="chat-message"
-                onChange={(event) => setMessage(event.target.value)}
+                onChange={(event) =>
+                  setMessage(event.target.value)
+                }
                 onKeyDown={handleKeyDown}
                 placeholder="Ask about your documents..."
                 rows={2}
                 value={message}
               />
-              <InputGroupAddon align="block-end" className="justify-between">
+
+              <InputGroupAddon
+                align="block-end"
+                className="justify-between"
+              >
                 <FileUploadTrigger asChild>
                   <InputGroupButton
                     aria-label={
-                      isUploading ? "Uploading documents" : "Attach documents"
+                      isUploading
+                        ? "Uploading documents"
+                        : "Attach documents"
                     }
                     disabled={isUploading}
                     size="icon-sm"
                     variant="ghost"
                   >
                     {isUploading ? (
-                      <Loader size="sm" variant="circular" />
+                      <Loader
+                        size="sm"
+                        variant="circular"
+                      />
                     ) : (
                       <Paperclip aria-hidden="true" />
                     )}
                   </InputGroupButton>
                 </FileUploadTrigger>
+
                 {isStreaming ? (
                   <InputGroupButton
                     aria-label="Stop generating"
@@ -339,12 +412,17 @@ export function ChatWorkspace({
                     size="icon-sm"
                     type="button"
                   >
-                    <Square aria-hidden="true" className="fill-current" />
+                    <Square
+                      aria-hidden="true"
+                      className="fill-current"
+                    />
                   </InputGroupButton>
                 ) : (
                   <InputGroupButton
                     aria-label="Send message"
-                    disabled={!message.trim() || isUploading}
+                    disabled={
+                      !message.trim() || isUploading
+                    }
                     size="icon-sm"
                     type="submit"
                   >
@@ -355,6 +433,7 @@ export function ChatWorkspace({
             </InputGroup>
           </FileUpload>
         </form>
+
         {uploadMessage ? (
           <p
             aria-live="polite"
@@ -367,21 +446,55 @@ export function ChatWorkspace({
             {uploadMessage}
           </p>
         ) : null}
+
         <p className="mt-2 text-center text-xs text-muted-foreground">
           AI can make mistakes. Check important information.
         </p>
       </div>
+
+      {/* Server waking/loading state */}
+      {isLoading ? (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="-translate-y-8 flex flex-col items-center gap-3 text-center">
+            <Loader
+              aria-label="Loading conversation"
+              variant="circular"
+            />
+
+            <p className="text-sm text-muted-foreground">
+              Waking up the assistant server…
+            </p>
+
+            <p className="text-xs text-muted-foreground/80">
+              This can take up to a minute after inactivity.
+            </p>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
 
-function DocumentChip({ document }: { document: SessionDocument }) {
+function DocumentChip({
+  document,
+}: {
+  document: SessionDocument
+}) {
   return (
     <div className="flex max-w-56 min-w-0 items-center gap-2 rounded-lg bg-muted px-2.5 py-1.5 text-sm">
-      <FileText aria-hidden="true" className="size-4 shrink-0" />
+      <FileText
+        aria-hidden="true"
+        className="size-4 shrink-0"
+      />
+
       <span className="truncate">{document.name}</span>
+
       {document.status === "uploading" ? (
-        <Loader className="shrink-0" size="sm" variant="circular" />
+        <Loader
+          className="shrink-0"
+          size="sm"
+          variant="circular"
+        />
       ) : document.status === "ready" ? (
         <Check
           aria-label="Upload complete"
