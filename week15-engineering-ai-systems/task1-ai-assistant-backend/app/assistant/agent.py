@@ -171,17 +171,7 @@ class AssistantAgent:
             # Step 3: Stream the final natural-language answer from the provider.
             answer_parts: list[str] = []
             final_model = completion.model
-            final_messages = [
-                *messages,
-                {
-                    "role": "user",
-                    "content": (
-                        "All required tool calls are complete. Answer the original "
-                        "question now using the available tool results and context. "
-                        "Do not call another tool."
-                    ),
-                },
-            ]
+            final_messages = self._build_stream_final_messages(messages)
 
             async for chunk in self._llm.stream_text(
                 final_messages,
@@ -229,6 +219,39 @@ class AssistantAgent:
             return
 
         raise LLMError("Maximum tool-call iterations reached")
+
+    @staticmethod
+    def _build_stream_final_messages(
+        messages: list[ChatMessageParam],
+    ) -> list[ChatMessageParam]:
+        """Convert tool protocol messages into context for the prose pass."""
+
+        final_messages: list[ChatMessageParam] = []
+        tool_results: list[str] = []
+
+        for message in messages:
+            if message.get("role") == "tool":
+                content = message.get("content")
+                if content:
+                    tool_results.append(str(content))
+                continue
+
+            if message.get("role") == "assistant" and message.get("tool_calls"):
+                continue
+
+            final_messages.append(message)
+
+        final_messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "Answer the original question now using the available context "
+                    "and tool results below. Do not call any tools.\n\n"
+                    f"Tool results:\n{json.dumps(tool_results)}"
+                ),
+            }
+        )
+        return final_messages
 
     @staticmethod
     def _build_messages(
