@@ -131,3 +131,8 @@
     @apply font-sans;
   }
 }
+
+/* Hide Mermaid's temporary syntax-error diagram during streamed rendering. */
+body > div[id^="dmermaid-"]:has(> svg[aria-roledescription="error"]) {
+  display: none !important;
+}

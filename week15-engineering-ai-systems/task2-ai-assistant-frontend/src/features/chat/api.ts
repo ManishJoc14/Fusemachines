@@ -56,6 +56,8 @@ interface StreamChatRequest {
   document_ids: string[]
 }
 
+const DELTA_CHARACTERS_PER_FRAME = 48
+
 export async function streamChat(
   request: StreamChatRequest,
   onEvent: (event: ChatStreamEvent) => void,
@@ -70,12 +72,13 @@ export async function streamChat(
 
   if (!response.ok) await throwApiError(response)
   if (!response.body) throw new Error("The streaming response has no body")
-  await readEventStream(response.body, onEvent)
+  await readEventStream(response.body, onEvent, signal)
 }
 
 async function readEventStream(
   body: ReadableStream<Uint8Array>,
-  onEvent: (event: ChatStreamEvent) => void
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal
 ) {
   const reader = body.getReader()
   const decoder = new TextDecoder()
@@ -86,24 +89,80 @@ async function readEventStream(
     buffer += decoder.decode(value, { stream: !done }).replaceAll("\r\n", "\n")
     const blocks = buffer.split("\n\n")
     buffer = blocks.pop() ?? ""
-    blocks.forEach((block) => emitEvent(block, onEvent))
+    await emitEvents(blocks, onEvent, signal)
 
     if (done) {
-      if (buffer.trim()) emitEvent(buffer, onEvent)
+      if (buffer.trim()) await emitEvents([buffer], onEvent, signal)
       return
     }
   }
 }
 
-function emitEvent(
-  eventBlock: string,
-  onEvent: (event: ChatStreamEvent) => void
+async function emitEvents(
+  blocks: string[],
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal
 ) {
+  let pendingText = ""
+
+  for (const block of blocks) {
+    const event = parseEvent(block)
+    if (!event) continue
+
+    // Step 1: Combine provider deltas that arrived in one network chunk.
+    if (event.type === "delta") {
+      pendingText += event.content
+      continue
+    }
+
+    // Step 2: Render queued text before later tool or completion events.
+    await emitTextProgressively(pendingText, onEvent, signal)
+    pendingText = ""
+
+    // Step 3: Emit non-text events in their original order.
+    throwIfAborted(signal)
+    onEvent(event)
+    await waitForPaint()
+  }
+
+  await emitTextProgressively(pendingText, onEvent, signal)
+}
+
+function parseEvent(eventBlock: string): ChatStreamEvent | null {
   const data = eventBlock
     .split("\n")
     .filter((line) => line.startsWith("data:"))
     .map((line) => line.slice(5).trimStart())
     .join("\n")
 
-  if (data) onEvent(JSON.parse(data) as ChatStreamEvent)
+  return data ? (JSON.parse(data) as ChatStreamEvent) : null
+}
+
+async function emitTextProgressively(
+  content: string,
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal
+) {
+  for (
+    let start = 0;
+    start < content.length;
+    start += DELTA_CHARACTERS_PER_FRAME
+  ) {
+    throwIfAborted(signal)
+    onEvent({
+      type: "delta",
+      content: content.slice(start, start + DELTA_CHARACTERS_PER_FRAME),
+    })
+    await waitForPaint()
+  }
+}
+
+function waitForPaint(): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, 16))
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException("The request was stopped", "AbortError")
+  }
 }

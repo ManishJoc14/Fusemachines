@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Generic, TypeVar, cast
 
 from openai import (
@@ -17,6 +17,7 @@ from openai import (
 )
 from openai.types.chat import (
     ChatCompletion,
+    ChatCompletionChunk,
     ChatCompletionMessage,
     ChatCompletionToolParam,
 )
@@ -35,11 +36,26 @@ class LLMError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class TokenUsage:
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+
+    def __add__(self, other: TokenUsage) -> TokenUsage:
+        return TokenUsage(
+            prompt_tokens=self.prompt_tokens + other.prompt_tokens,
+            completion_tokens=self.completion_tokens + other.completion_tokens,
+            total_tokens=self.total_tokens + other.total_tokens,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class LLMCompletion(Generic[ResponseModelT]):
     message: ChatCompletionMessage
     parsed: ResponseModelT | None
     model: str
     used_fallback: bool
+    usage: TokenUsage
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +64,7 @@ class LLMTextChunk:
     model: str
     used_fallback: bool
     is_complete: bool = False
+    usage: TokenUsage = field(default_factory=TokenUsage)
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,12 +124,13 @@ class LLMClient:
         for candidate in candidate_models:
             try:
                 # Step 1: Send the conversation and schema to this model.
-                message = await self._request(
+                response = await self._request(
                     candidate,
                     messages,
                     response_model,
                     tools,
                 )
+                message = response.choices[0].message
 
                 # Step 2: Validate content when this is a final-answer turn.
                 parsed = self._parse_final_answer(
@@ -127,6 +145,7 @@ class LLMClient:
                     parsed=parsed,
                     model=candidate,
                     used_fallback=candidate != self._models[0],
+                    usage=self._read_usage(response),
                 )
             except (
                 APIError,
@@ -156,8 +175,10 @@ class LLMClient:
 
         for candidate in self._candidate_models(model):
             received_content = False
+            stream_usage = TokenUsage()
 
             try:
+                # Step 1: Open a streaming request with the current model.
                 stream = await self._client.chat.completions.create(
                     model=candidate,
                     messages=cast(Any, messages),
@@ -165,9 +186,15 @@ class LLMClient:
                     top_p=self._settings.llm_top_p,
                     max_tokens=self._settings.llm_max_output_tokens,
                     stream=True,
+                    stream_options={"include_usage": True},
                 )
 
+                # Step 2: Forward text chunks as soon as they arrive.
                 async for chunk in stream:
+                    stream_usage += self._read_usage(chunk)
+                    if not chunk.choices:
+                        continue
+
                     content = chunk.choices[0].delta.content
                     if not content:
                         continue
@@ -179,11 +206,13 @@ class LLMClient:
                         used_fallback=candidate != self._models[0],
                     )
 
+                # Step 3: Emit a marker so callers know the stream completed.
                 yield LLMTextChunk(
                     content="",
                     model=candidate,
                     used_fallback=candidate != self._models[0],
                     is_complete=True,
+                    usage=stream_usage,
                 )
                 return
             except (
@@ -194,6 +223,7 @@ class LLMClient:
                 InternalServerError,
                 RateLimitError,
             ) as exc:
+                # Step 4: Fall back only if no partial answer was already emitted.
                 if received_content:
                     raise LLMError(
                         f"Model stream interrupted after output began: {exc}"
@@ -213,17 +243,33 @@ class LLMClient:
         messages: list[ChatMessageParam],
         response_model: type[BaseModel],
         tools: list[ChatCompletionToolParam] | None,
-    ) -> ChatCompletionMessage:
+    ) -> ChatCompletion:
+        # Step 1: Use tool mode only while the agent is planning an action.
         if tools:
             completion = await self._request_with_tools(model, messages, tools)
         else:
+            # Step 2: Use JSON Schema mode for the final validated response.
             completion = await self._request_structured_output(
                 model,
                 messages,
                 response_model,
             )
 
-        return completion.choices[0].message
+        return completion
+
+    @staticmethod
+    def _read_usage(
+        completion: ChatCompletion | ChatCompletionChunk,
+    ) -> TokenUsage:
+        # Some OpenAI-compatible providers omit usage from their responses.
+        usage = completion.usage
+        if usage is None:
+            return TokenUsage()
+        return TokenUsage(
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
+        )
 
     async def _request_with_tools(
         self,

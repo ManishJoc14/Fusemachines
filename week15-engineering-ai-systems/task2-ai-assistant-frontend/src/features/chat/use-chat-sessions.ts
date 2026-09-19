@@ -283,6 +283,7 @@ export function useChatSessions(enabled: boolean) {
     messageId: string,
     event: ChatStreamEvent
   ) {
+    // Step 1: Record visible retrieval and generation progress.
     if (event.type === "status") {
       updateAssistantMessage(sessionId, messageId, (message) => ({
         ...message,
@@ -294,6 +295,7 @@ export function useChatSessions(enabled: boolean) {
       }))
     }
 
+    // Step 2: Add each tool result as soon as the backend emits it.
     if (event.type === "tool") {
       updateAssistantMessage(sessionId, messageId, (message) => ({
         ...message,
@@ -301,6 +303,7 @@ export function useChatSessions(enabled: boolean) {
       }))
     }
 
+    // Step 3: Append answer text without waiting for the full response.
     if (event.type === "delta") {
       updateAssistantMessage(sessionId, messageId, (message) => ({
         ...message,
@@ -308,6 +311,7 @@ export function useChatSessions(enabled: boolean) {
       }))
     }
 
+    // Step 4: Replace temporary state with validated final metadata.
     if (event.type === "complete") {
       updateAssistantMessage(sessionId, messageId, (message) => ({
         ...message,
@@ -320,9 +324,12 @@ export function useChatSessions(enabled: boolean) {
         tools: event.response.tools_used,
         model: event.response.model,
         usedFallback: event.response.used_fallback,
+        agent: event.response.agent,
+        pipelineStats: event.response.pipeline_stats,
       }))
     }
 
+    // Step 5: Preserve a readable failure when the stream cannot finish.
     if (event.type === "error") {
       markAssistantError(sessionId, messageId, event.message)
     }
@@ -442,6 +449,8 @@ function mapStoredMessage(
     tools: details.tools_used ?? [],
     model: details.model,
     usedFallback: details.used_fallback,
+    agent: details.agent,
+    pipelineStats: details.pipeline_stats,
   }
 }
 

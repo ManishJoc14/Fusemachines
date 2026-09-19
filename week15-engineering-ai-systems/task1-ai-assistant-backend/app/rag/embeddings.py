@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import cast
 
 from sentence_transformers import SentenceTransformer
 
@@ -52,7 +53,7 @@ class EmbeddingService:
 
         # Step 3: Catch model/configuration mismatches before writing vectors.
         self._validate_dimension(vectors.shape[1])
-        return vectors.tolist()
+        return cast(list[list[float]], vectors.tolist())
 
     def _get_model(self) -> SentenceTransformer:
         if self._model is None:

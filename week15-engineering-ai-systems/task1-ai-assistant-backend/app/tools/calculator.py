@@ -56,9 +56,9 @@ def _root(value: Number, degree: Number = 2) -> float:
         if degree_int % 2 == 0:
             raise ValueError("even root of a negative number is not real")
 
-        return -((-value) ** (1 / degree_int))
+        return float(-((-value) ** (1 / degree_int)))
 
-    return value ** (1 / degree_int)
+    return float(value ** (1 / degree_int))
 
 
 def _mean(*values: Number) -> float:
@@ -236,7 +236,8 @@ class CalculatorInput(BaseModel):
             "Supported functions include sqrt(x), root(x, n), abs(x), round(x, n), "
             "ceil(x), floor(x), log(x), log(x, base), log10(x), "
             "sin(x), cos(x), tan(x), asin(x), acos(x), atan(x), "
-            "sin_deg(x), cos_deg(x), tan_deg(x), asin_deg(x), acos_deg(x), atan_deg(x), "
+            "sin_deg(x), cos_deg(x), tan_deg(x), asin_deg(x), acos_deg(x), "
+            "atan_deg(x), "
             "degrees(x), radians(x), factorial(x), comb(n, r), perm(n, r), "
             "gcd(a, b), lcm(a, b), hypot(a, b), percentage_of(percent, value), "
             "mean(...), median(...), variance(...), stddev(...), min(...), max(...), "
@@ -473,7 +474,8 @@ def create_calculator_tool() -> RegisteredTool:
             "Use sqrt(x) for square roots and root(x, n) for nth roots, including "
             "root(x, 3) for cube roots. Standard sin/cos/tan use radians; use "
             "sin_deg/cos_deg/tan_deg for degree inputs. Use only documented function "
-            "names and do not invent functions such as cbrt unless explicitly supported."
+            "names and do not invent functions such as cbrt unless explicitly "
+            "supported."
         ),
         input_model=CalculatorInput,
         handler=calculate,

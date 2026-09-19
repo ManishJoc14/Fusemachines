@@ -14,14 +14,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.assistant.agent import (
     AgentCompleteEvent,
     AgentDeltaEvent,
+    AgentStep,
     AgentToolEvent,
     AssistantAgent,
 )
 from app.db.models import ChatMessage as StoredChatMessage
 from app.db.models import ChatSession, Document, MessageDocument
 from app.db.session import Database
+from app.llm.client import TokenUsage
 from app.rag.retriever import RetrievalResult, Retriever
 from app.schemas.chat import (
+    AgentStats,
+    AgentStepStats,
     ChatMessage,
     ChatRequest,
     ChatResponse,
@@ -33,6 +37,7 @@ from app.schemas.chat import (
     Confidence,
     PipelineStats,
     SourceReference,
+    TokenUsageStats,
     ToolExecution,
 )
 from app.schemas.document import RetrievedChunk
@@ -137,6 +142,11 @@ class ChatService:
                         tools_used=agent_event.tools_used,
                         model=agent_event.model,
                         used_fallback=agent_event.used_fallback,
+                        agent=self._build_agent_stats(
+                            agent_event.iterations,
+                            agent_event.trajectory,
+                            agent_event.token_usage,
+                        ),
                         retrieval=retrieval,
                     )
                     await self._save_assistant_message(
@@ -322,6 +332,11 @@ class ChatService:
             tools_used=agent_result.tools_used,
             model=agent_result.model,
             used_fallback=agent_result.used_fallback,
+            agent=self._build_agent_stats(
+                agent_result.iterations,
+                agent_result.trajectory,
+                agent_result.token_usage,
+            ),
             retrieval=retrieval,
         )
 
@@ -335,6 +350,7 @@ class ChatService:
         tools_used: list[ToolExecution],
         model: str,
         used_fallback: bool,
+        agent: AgentStats,
         retrieval: RetrievalResult,
     ) -> ChatResponse:
         sources = self._build_sources(cited_chunk_ids, retrieval.chunks)
@@ -346,11 +362,38 @@ class ChatService:
             tools_used=tools_used,
             model=model,
             used_fallback=used_fallback,
+            agent=agent,
             pipeline_stats=PipelineStats(
                 retrieval_strategy=retrieval.strategy,
                 retrieved_chunks=len(retrieval.chunks),
                 cited_chunks=len(sources),
                 tool_executions=len(tools_used),
+            ),
+        )
+
+    @staticmethod
+    def _build_agent_stats(
+        iterations: int,
+        trajectory: list[AgentStep],
+        token_usage: TokenUsage,
+    ) -> AgentStats:
+        """Convert internal agent metrics into the public response schema."""
+
+        return AgentStats(
+            iterations=iterations,
+            trajectory=[
+                AgentStepStats(
+                    iteration=step.iteration,
+                    action=step.action,
+                    tool_name=step.tool_name,
+                    success=step.success,
+                )
+                for step in trajectory
+            ],
+            token_usage=TokenUsageStats(
+                prompt_tokens=token_usage.prompt_tokens,
+                completion_tokens=token_usage.completion_tokens,
+                total_tokens=token_usage.total_tokens,
             ),
         )
 

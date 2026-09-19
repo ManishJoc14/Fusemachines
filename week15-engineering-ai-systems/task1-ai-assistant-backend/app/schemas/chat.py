@@ -26,7 +26,12 @@ class AssistantOutput(BaseModel):
 
     answer: str = Field(min_length=1)
     cited_chunk_ids: list[str]
-    follow_up_questions: list[str] = Field(max_length=3)
+    follow_up_questions: list[str] = Field(
+        max_length=3,
+        description=(
+            "Ready-to-send next messages written from the user's point of view."
+        ),
+    )
     confidence: Confidence
 
 
@@ -36,7 +41,12 @@ class AssistantMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     cited_chunk_ids: list[str]
-    follow_up_questions: list[str] = Field(max_length=3)
+    follow_up_questions: list[str] = Field(
+        max_length=3,
+        description=(
+            "Ready-to-send next messages written from the user's point of view."
+        ),
+    )
     confidence: Confidence
 
 
@@ -56,6 +66,25 @@ class ToolExecution(BaseModel):
     success: bool
 
 
+class AgentStepStats(BaseModel):
+    iteration: int
+    action: Literal["tool", "answer"]
+    tool_name: str | None = None
+    success: bool | None = None
+
+
+class TokenUsageStats(BaseModel):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
+class AgentStats(BaseModel):
+    iterations: int
+    trajectory: list[AgentStepStats]
+    token_usage: TokenUsageStats
+
+
 class PipelineStats(BaseModel):
     retrieval_strategy: Literal["hybrid_rerank", "dense_cosine", "disabled"]
     retrieved_chunks: int
@@ -71,6 +100,7 @@ class ChatResponse(BaseModel):
     tools_used: list[ToolExecution]
     model: str
     used_fallback: bool
+    agent: AgentStats
     pipeline_stats: PipelineStats
 
 

@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from collections.abc import Awaitable
 from dataclasses import dataclass
+from typing import cast
 
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
@@ -41,12 +43,16 @@ class RateLimiter:
         key = f"rate-limit:chat:{user_id}:{window}"
 
         try:
-            count, ttl = await self._redis.eval(
-                _INCREMENT_WINDOW,
-                1,
-                key,
-                self._window_seconds,
+            result = await cast(
+                Awaitable[list[int]],
+                self._redis.eval(
+                    _INCREMENT_WINDOW,
+                    1,
+                    key,
+                    str(self._window_seconds),
+                ),
             )
+            count, ttl = result
         except RedisError as exc:
             # Chat remains available if the optional reliability service fails.
             logger.warning(

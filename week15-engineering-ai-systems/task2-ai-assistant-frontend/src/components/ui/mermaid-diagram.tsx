@@ -17,6 +17,8 @@ interface RenderResult {
   error?: string
 }
 
+const RENDER_DELAY_MS = 200
+
 const MermaidDiagram = memo(function MermaidDiagram({
   code,
 }: MermaidDiagramProps) {
@@ -31,12 +33,18 @@ const MermaidDiagram = memo(function MermaidDiagram({
     let cancelled = false
     renderCount.current += 1
     const diagramId = `mermaid-${baseId}-${renderCount.current}`
+    const temporaryContainerId = `d${diagramId}`
+
+    function removeTemporaryContainer() {
+      document.getElementById(temporaryContainerId)?.remove()
+    }
 
     async function renderDiagram() {
       try {
         const mermaid = (await import("mermaid")).default
         mermaid.initialize({
           startOnLoad: false,
+          suppressErrorRendering: true,
           securityLevel: "strict",
           theme,
           flowchart: {
@@ -54,12 +62,21 @@ const MermaidDiagram = memo(function MermaidDiagram({
             error: error instanceof Error ? error.message : String(error),
           })
         }
+      } finally {
+        // Mermaid may leave this body-level container after a parse error.
+        removeTemporaryContainer()
       }
     }
 
-    renderDiagram()
+    // Wait briefly so streamed Mermaid source is not parsed after every token.
+    const renderTimer = window.setTimeout(() => {
+      void renderDiagram()
+    }, RENDER_DELAY_MS)
+
     return () => {
       cancelled = true
+      window.clearTimeout(renderTimer)
+      removeTemporaryContainer()
     }
   }, [baseId, code, renderKey, theme])
 

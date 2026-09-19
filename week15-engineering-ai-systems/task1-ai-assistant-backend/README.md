@@ -10,7 +10,8 @@ through Hugging Face or an OpenAI-compatible model served with vLLM.
 - Hugging Face primary and fallback models
 - Optional local or remote vLLM backend
 - JSON Schema-constrained assistant responses
-- Multi-turn tool calling with calculator, UTC time, and live weather tools
+- Bounded agent loop with adaptive cross-source verification
+- Tool calling with calculator, UTC time, weather, and Monid discovery tools
 - Markdown, text, and PDF ingestion
 - Local sentence-transformer embeddings and Qdrant vector search
 - Verifiable document citations in chat responses
@@ -162,8 +163,8 @@ Chat history is loaded from PostgreSQL rather than accepted from the client.
 Before retrieval, the chat service verifies that requested documents belong to
 the authenticated user and are attached to the user's session. The retriever
 receives only those validated document IDs and cannot access another user's
-documents. The response reports citations, executed tools, selected model,
-fallback status, and pipeline statistics.
+documents. The response reports citations, executed tools, agent trajectory,
+token usage, selected model, fallback status, and pipeline statistics.
 
 The agent can perform several bounded tool-planning rounds. A failed tool call
 is returned as a tool result so the model can retry or choose another tool. The
@@ -180,7 +181,7 @@ this order as work becomes available:
 | `status` | Retrieval or generation progress |
 | `tool` | Completed tool result, including failures |
 | `delta` | Incremental final answer text |
-| `complete` | Validated answer, citations, tools, model, and statistics |
+| `complete` | Validated answer, citations, tools, agent trajectory, tokens, model, and statistics |
 | `error` | Request, retrieval, or model failure |
 
 The backend persists a pending assistant message before generation. On normal
@@ -260,6 +261,88 @@ ruff check .
 mypy app
 pytest
 ```
+
+## Week 16 agentic extension
+
+### Agentic feature
+
+The new feature is **adaptive cross-source verification**. When a user asks to
+verify, research, or compare a claim, the model examines each observation and
+chooses whether to use another source, switch tools, ask a focused clarification
+question, or answer with an explicit limitation. A fixed pipeline is
+insufficient because each source may confirm, contradict, or leave gaps in the
+current evidence, so the next search and stopping decision must depend on what
+the agent discovers at runtime.
+
+The loop is bounded by `LLM_MAX_TOOL_ITERATIONS` (five by default). Only one
+external evidence call is requested per turn, ensuring that the next action can
+depend on the previous result. Successful and failed tool observations are both
+returned to the model; a failed call is marked as missing evidence and never as
+support for a claim.
+
+### Context Engineering Technique
+
+The loop uses **structured, capped external notes**. After a tool executes,
+`AssistantAgent` keeps the complete result for the API response and UI, but
+returns a JSON observation containing the tool name, validated arguments,
+success state, bounded evidence, and a truncation flag to the model. The cap is
+configured with `LLM_TOOL_RESULT_MAX_CHARACTERS`. This is applied after every
+tool step because discovery and research APIs can return large payloads that
+would otherwise repeatedly consume the context window and hide the evidence
+needed for the next decision. Document retrieval separately caps and reranks
+candidates before adding them to the prompt.
+
+### Agentic Pattern
+
+This implementation uses a **single-agent loop**. Verification actions are
+sequentially dependent: the agent must inspect one observation before deciding
+whether a second source is useful. A multi-agent design would add coordination
+tokens without useful parallelization or context isolation for this scope. The
+bounded context notes address context saturation, while provider fallback
+reduces the single-point-of-failure risk.
+
+### Evaluation Harness
+
+The harness in `scripts/evaluate_agent.py` calls the real configured LLM while
+using a deterministic evidence tool. Its cases cover corroborating sources,
+conflicting sources, an ambiguous request that should trigger clarification,
+and an intentionally unavailable source. It measures task completion,
+tool-name and argument correctness, trajectory length, and prompt/completion/
+total tokens for every query. Failures are classified as hard, soft, or
+cascading soft failures.
+
+Run it from the backend directory:
+
+```bash
+python -m scripts.evaluate_agent
+```
+
+The latest measured report is in [Agent evaluation results](evals/results.md).
+The recorded run completed 4/4 cases, selected valid tools and source arguments
+in 4/4 cases, averaged 2.75 iterations, and consumed 14,523 tokens. Monetary
+cost is not estimated because the selected Hugging Face provider routes do not
+return a stable price with each response.
+
+### Skill vs. Agent
+
+A Skill could describe verification rules, but it could not observe changing
+tool results and decide whether to search again, clarify, or stop; therefore
+this capability belongs in the agent loop.
+
+### Failure Injection
+
+The `injected_tool_failure` case makes `unavailable_source` raise a controlled
+timeout-style error. The registry converts it into a failed observation. In the
+recorded run, the agent recognized the failure, consulted two available sources,
+and completed in four iterations without treating the failed source as evidence.
+
+### Tool vs. Agent Boundary
+
+Monid is modeled as three bounded tools (`discover`, `inspect`, and `run`), not
+as another agent. The main agent owns the goal, chooses each next action, and
+interprets results; Monid only performs one deterministic external API operation
+per call. Treating it as agent-to-agent communication would add unclear autonomy
+and coordination overhead without gaining specialization.
 
 ## API endpoints
 

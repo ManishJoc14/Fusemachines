@@ -12,7 +12,7 @@ class RedisClient:
     """Own the shared Redis connection used by application services."""
 
     def __init__(self, url: str) -> None:
-        self._client = Redis.from_url(url, decode_responses=True)
+        self._client: Redis = Redis.from_url(url, decode_responses=True)
 
     @property
     def client(self) -> Redis:

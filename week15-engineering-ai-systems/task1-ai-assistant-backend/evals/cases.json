@@ -1,0 +1,43 @@
+[
+  {
+    "id": "confirmed_claim",
+    "question": "Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.",
+    "minimum_tool_calls": 2,
+    "minimum_iterations": 3,
+    "expected_tools": ["evidence_search"],
+    "expected_sources": ["source_a", "source_b"],
+    "answer_terms": ["19"],
+    "expects_injected_failure": false
+  },
+  {
+    "id": "conflicting_sources",
+    "question": "Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.",
+    "minimum_tool_calls": 2,
+    "minimum_iterations": 3,
+    "expected_tools": ["evidence_search"],
+    "expected_sources": ["source_a", "source_b"],
+    "answer_terms": ["conflict", "disagree", "uncertain"],
+    "expects_injected_failure": false
+  },
+  {
+    "id": "needs_clarification",
+    "question": "Can you verify that it increased by 20 percent?",
+    "minimum_tool_calls": 0,
+    "maximum_tool_calls": 0,
+    "minimum_iterations": 1,
+    "expected_tools": [],
+    "expected_sources": [],
+    "answer_terms": ["what", "which", "clarify", "specify"],
+    "expects_injected_failure": false
+  },
+  {
+    "id": "injected_tool_failure",
+    "question": "Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.",
+    "minimum_tool_calls": 2,
+    "minimum_iterations": 3,
+    "expected_tools": ["evidence_search"],
+    "expected_sources": ["unavailable_source", "source_a"],
+    "answer_terms": ["reopened", "evidence", "source"],
+    "expects_injected_failure": true
+  }
+]

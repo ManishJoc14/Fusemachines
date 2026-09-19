@@ -25,6 +25,25 @@ export interface PipelineStats {
   tool_executions: number
 }
 
+export interface AgentStepStats {
+  iteration: number
+  action: "tool" | "answer"
+  tool_name?: string | null
+  success?: boolean | null
+}
+
+export interface TokenUsageStats {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+}
+
+export interface AgentStats {
+  iterations: number
+  trajectory: AgentStepStats[]
+  token_usage: TokenUsageStats
+}
+
 export interface ChatResponse {
   answer: string
   confidence: Confidence
@@ -33,6 +52,7 @@ export interface ChatResponse {
   tools_used: ToolExecution[]
   model: string
   used_fallback: boolean
+  agent: AgentStats
   pipeline_stats: PipelineStats
 }
 
@@ -71,6 +91,8 @@ export interface AssistantMessage extends BaseMessage {
   tools: ToolExecution[]
   model?: string
   usedFallback?: boolean
+  agent?: AgentStats
+  pipelineStats?: PipelineStats
 }
 
 export type ChatMessage = UserMessage | AssistantMessage

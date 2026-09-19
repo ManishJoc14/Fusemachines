@@ -26,10 +26,13 @@ import {
 } from "@/components/ui/steps"
 import { Tool } from "@/components/ui/tool"
 import type {
+  AgentStats,
+  AgentStepStats,
   AssistantMessage,
   ChatMessage as ChatMessageType,
   MessageAttachment,
   SourceReference,
+  TokenUsageStats,
   ToolExecution,
 } from "@/features/chat/types"
 
@@ -95,18 +98,18 @@ export function ChatMessage({
 
         {message.status === "complete" && message.followUpQuestions?.length ? (
           <div
-            aria-label="Suggested follow-up questions"
+            aria-label="Suggested next prompts"
             className="mt-3 flex flex-wrap gap-2"
           >
-            {message.followUpQuestions.map((question) => (
+            {message.followUpQuestions.map((suggestion) => (
               <PromptSuggestion
                 className="h-auto min-h-9 max-w-full justify-start py-2 text-left whitespace-normal"
                 disabled={suggestionsDisabled}
-                key={question}
-                onClick={() => onSuggestionSelect(question)}
+                key={suggestion}
+                onClick={() => onSuggestionSelect(suggestion)}
                 size="sm"
               >
-                {question}
+                {suggestion}
               </PromptSuggestion>
             ))}
           </div>
@@ -174,6 +177,9 @@ function AssistantActivity({ message }: { message: AssistantMessage }) {
     activities.length > 0 ||
     message.tools.length > 0 ||
     message.sources.length > 0 ||
+    Boolean(message.agent) ||
+    Boolean(message.pipelineStats) ||
+    Boolean(message.confidence) ||
     Boolean(message.model)
 
   if (!hasDetails) return null
@@ -203,6 +209,8 @@ function AssistantActivity({ message }: { message: AssistantMessage }) {
           </StepsItem>
         ))}
 
+        {message.agent ? <AgentTrajectory agent={message.agent} /> : null}
+
         {message.tools.map((tool, index) => (
           <Tool
             className="mt-0"
@@ -216,14 +224,68 @@ function AssistantActivity({ message }: { message: AssistantMessage }) {
           <SourcePassage key={source.chunk_id} source={source} />
         ))}
 
+        {message.pipelineStats &&
+        message.pipelineStats.retrieval_strategy !== "disabled" ? (
+          <StepsItem>
+            Retrieval: {formatRetrievalStrategy(message.pipelineStats)}
+          </StepsItem>
+        ) : null}
+
+        {message.confidence ? (
+          <StepsItem>Confidence: {capitalize(message.confidence)}</StepsItem>
+        ) : null}
+
         {message.model ? (
           <StepsItem>
             Model: {message.model}
             {message.usedFallback ? " (fallback)" : ""}
           </StepsItem>
         ) : null}
+
+        {message.agent?.token_usage.total_tokens ? (
+          <TokenUsage usage={message.agent.token_usage} />
+        ) : null}
       </StepsContent>
     </Steps>
+  )
+}
+
+function AgentTrajectory({ agent }: { agent: AgentStats }) {
+  return agent.trajectory.map((step, index) => (
+    <StepsItem
+      className={step.success === false ? "text-destructive" : undefined}
+      key={`${step.iteration}-${step.tool_name ?? step.action}-${index}`}
+    >
+      {formatAgentStep(step)}
+    </StepsItem>
+  ))
+}
+
+function TokenUsage({ usage }: { usage: TokenUsageStats }) {
+  return (
+    <div
+      aria-label="Token usage"
+      className="mt-3 rounded-xl border bg-muted/30 p-3"
+      role="group"
+    >
+      <p className="mb-2 text-xs font-medium text-foreground">Token usage</p>
+      <dl className="grid grid-cols-3 gap-3">
+        <TokenMetric label="Input" value={usage.prompt_tokens} />
+        <TokenMetric label="Output" value={usage.completion_tokens} />
+        <TokenMetric label="Total" value={usage.total_tokens} />
+      </dl>
+    </div>
+  )
+}
+
+function TokenMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate text-sm font-medium text-foreground tabular-nums">
+        {value.toLocaleString()}
+      </dd>
+    </div>
   )
 }
 
@@ -251,6 +313,14 @@ function SourcePassage({ source }: { source: SourceReference }) {
 }
 
 function buildActivitySummary(message: AssistantMessage): string {
+  if (message.agent) {
+    const steps = `${message.agent.iterations} step${message.agent.iterations === 1 ? "" : "s"}`
+    const tokens = message.agent.token_usage.total_tokens
+    return tokens
+      ? `Completed in ${steps} · ${formatCompactNumber(tokens)} tokens`
+      : `Completed in ${steps}`
+  }
+
   const details = []
   if (message.tools.length) {
     details.push(
@@ -264,6 +334,38 @@ function buildActivitySummary(message: AssistantMessage): string {
   }
 
   return details.length ? `Used ${details.join(" and ")}` : "Activity"
+}
+
+function formatAgentStep(step: AgentStepStats): string {
+  if (step.action === "answer") {
+    return `Step ${step.iteration}: Composed the final answer`
+  }
+
+  const toolName = step.tool_name?.replaceAll("_", " ") ?? "tool"
+  const outcome = step.success === false ? "failed" : "completed"
+  return `Step ${step.iteration}: ${toolName} ${outcome}`
+}
+
+function formatCompactNumber(value: number): string {
+  return new Intl.NumberFormat("en", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value)
+}
+
+function formatRetrievalStrategy(
+  stats: NonNullable<AssistantMessage["pipelineStats"]>
+): string {
+  const strategy =
+    stats.retrieval_strategy === "hybrid_rerank"
+      ? "Hybrid search and reranking"
+      : "Dense similarity search"
+  const chunks = `${stats.retrieved_chunks} passage${stats.retrieved_chunks === 1 ? "" : "s"}`
+  return `${strategy} · ${chunks}`
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 function toToolPart(tool: ToolExecution) {
