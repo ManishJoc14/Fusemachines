@@ -1,0 +1,48 @@
+[project]
+name = "telco-churn"
+version = "0.1.0"
+description = "A reproducible MLOps pipeline for IBM Telco Customer Churn"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "evidently>=0.7.20,<0.8",
+    "fastapi>=0.135,<0.136",
+    "matplotlib>=3.10,<4",
+    "mlflow>=3.10,<4",
+    "pandas>=2.3,<3",
+    "pydantic>=2.12,<3",
+    "scikit-learn>=1.8,<2",
+    "seaborn>=0.13,<0.14",
+    "uvicorn[standard]>=0.42,<0.43",
+]
+
+[project.scripts]
+prepare-data = "telco_churn.data:main"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28,<0.29",
+    "mypy>=1.19,<2",
+    "pandas-stubs>=2.3,<3",
+    "pytest>=9,<10",
+    "ruff>=0.15,<0.16",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
