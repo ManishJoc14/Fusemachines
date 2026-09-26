@@ -84,7 +84,7 @@ def build_judges(model: str) -> list[LLMJudge]:
             template=correctness_template,
             input_column="correctness_input",
             alias="correctness",
-            tests=[is_in(["correct"])],
+            tests=[is_in(["correct"], column="correctness")],
         ),
         LLMJudge(
             provider="openai",
@@ -92,7 +92,7 @@ def build_judges(model: str) -> list[LLMJudge]:
             template=relevance_template,
             input_column="relevance_input",
             alias="relevance",
-            tests=[is_in(["relevant"])],
+            tests=[is_in(["relevant"], column="relevance")],
         ),
     ]
 
