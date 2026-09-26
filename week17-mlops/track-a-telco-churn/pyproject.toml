@@ -19,6 +19,7 @@ dependencies = [
 [project.scripts]
 prepare-data = "telco_churn.data:main"
 train-models = "telco_churn.training:main"
+serve-model = "telco_churn.api:run"
 
 [dependency-groups]
 dev = [
