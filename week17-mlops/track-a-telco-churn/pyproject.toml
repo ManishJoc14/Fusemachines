@@ -18,6 +18,7 @@ dependencies = [
 
 [project.scripts]
 prepare-data = "telco_churn.data:main"
+train-models = "telco_churn.training:main"
 
 [dependency-groups]
 dev = [
@@ -42,6 +43,10 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["mlflow.*", "seaborn", "sklearn.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
