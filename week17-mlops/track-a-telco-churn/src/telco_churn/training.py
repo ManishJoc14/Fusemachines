@@ -232,6 +232,24 @@ def register_best_model(best_run: RunResult) -> str:
         "selection_metric",
         "f1",
     )
+    registry_path = REPORTS_DIR / "registered_model.json"
+    registry_path.write_text(
+        json.dumps(
+            {
+                "name": REGISTERED_MODEL_NAME,
+                "version": str(registered.version),
+                "source_run_id": best_run.run_id,
+                "model": best_run.model_name,
+                "promotion_history": ["Staging", "Production"],
+                "current_stage": "Production",
+                "alias": "champion",
+                "selection_metric": "f1",
+                "selection_metric_value": best_run.metrics["f1"],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return str(registered.version)
 
 

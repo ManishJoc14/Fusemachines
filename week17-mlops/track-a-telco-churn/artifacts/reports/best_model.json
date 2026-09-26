@@ -1,0 +1,19 @@
+{
+  "selection_metric": "f1",
+  "tie_breaker": "roc_auc",
+  "best_run": {
+    "selected": true,
+    "model": "random_forest_depth_10",
+    "run_id": "ca4f9027b3414e078b4975a139521627",
+    "model_family": "random_forest",
+    "n_estimators": 250,
+    "max_depth": 10,
+    "min_samples_leaf": 2,
+    "class_weight": "balanced",
+    "accuracy": 0.7544357700496807,
+    "precision": 0.5256410256410257,
+    "recall": 0.767379679144385,
+    "f1": 0.6239130434782608,
+    "roc_auc": 0.8393706889870572
+  }
+}

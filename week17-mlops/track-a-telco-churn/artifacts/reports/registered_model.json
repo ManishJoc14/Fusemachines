@@ -1,0 +1,15 @@
+{
+  "name": "telco-churn-classifier",
+  "version": "1",
+  "source_run_id": "ca4f9027b3414e078b4975a139521627",
+  "model": "random_forest_depth_10",
+  "promotion_history": [
+    "Staging",
+    "Production"
+  ],
+  "current_stage": "Production",
+  "alias": "champion",
+  "selection_metric": "f1",
+  "selection_metric_value": 0.6239130434782608
+}
+
