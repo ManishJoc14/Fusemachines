@@ -10,8 +10,8 @@ import pytest
 from openai.types.chat import ChatCompletionMessage
 from pydantic import BaseModel, ConfigDict
 
-from app.assistant.agent import AgentCompleteEvent, AssistantAgent
-from app.llm.client import LLMCompletion, LLMError, LLMTextChunk, TokenUsage
+from app.assistant.agent import AgentCompleteEvent, AgentLimitError, AssistantAgent
+from app.llm.client import LLMCompletion, LLMTextChunk, TokenUsage
 from app.schemas.chat import AssistantMetadata, AssistantOutput
 from app.tools.registry import RegisteredTool, ToolRegistry
 
@@ -146,6 +146,9 @@ async def test_agent_runs_multiple_tool_iterations_and_records_usage() -> None:
     assert result.trajectory[-1].action == "answer"
     assert result.token_usage.total_tokens == 40
     assert len(result.tools_used) == 2
+    assert result.trajectory[0].arguments == {"source": "source-a"}
+    assert result.trajectory[0].result is not None
+    assert result.trajectory[-1].termination_reason == "success"
 
     first_tool_note = json.loads(llm.calls[1][-1]["content"])
     assert first_tool_note["tool"] == "search_evidence"
@@ -160,8 +163,14 @@ async def test_agent_stops_at_the_iteration_limit() -> None:
     agent = build_agent(RepeatingToolLLM(), max_iterations=2)
 
     # Step 2: Verify the bounded loop stops instead of running forever.
-    with pytest.raises(LLMError, match="Maximum tool-call iterations reached"):
+    with pytest.raises(
+        AgentLimitError, match="Maximum tool-call iterations reached"
+    ) as error:
         await agent.run("Keep searching forever.")
+
+    assert len(error.value.trajectory) == 2
+    assert len(error.value.tools_used) == 2
+    assert error.value.token_usage.total_tokens == 20
 
 
 @pytest.mark.asyncio

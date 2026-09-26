@@ -24,7 +24,26 @@ class AgentStep:
     iteration: int
     action: Literal["tool", "answer"]
     tool_name: str | None = None
+    arguments: dict[str, object] | None = None
+    result: str | None = None
     success: bool | None = None
+    decision: str = ""
+    termination_reason: str | None = None
+
+
+class AgentLimitError(LLMError):
+    """Raised with the partial trace when the bounded loop cannot finish."""
+
+    def __init__(
+        self,
+        trajectory: list[AgentStep],
+        tools_used: list[ToolExecution],
+        token_usage: TokenUsage,
+    ) -> None:
+        super().__init__("Maximum tool-call iterations reached")
+        self.trajectory = trajectory
+        self.tools_used = tools_used
+        self.token_usage = token_usage
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,12 +135,7 @@ class AssistantAgent:
                     executions,
                 )
                 trajectory.extend(
-                    AgentStep(
-                        iteration=iteration,
-                        action="tool",
-                        tool_name=execution.name,
-                        success=execution.success,
-                    )
+                    self._build_tool_step(iteration, execution)
                     for execution in iteration_executions
                 )
                 continue
@@ -140,7 +154,16 @@ class AssistantAgent:
                 raise LLMError("Model did not return a structured final answer")
 
             # Step 5: Return the validated answer and execution metadata.
-            trajectory.append(AgentStep(iteration=iteration, action="answer"))
+            trajectory.append(
+                AgentStep(
+                    iteration=iteration,
+                    action="answer",
+                    decision=(
+                        "Evidence gathering is complete; compose the final answer."
+                    ),
+                    termination_reason="success",
+                )
+            )
             return AgentResult(
                 output=final_completion.parsed,
                 tools_used=executions,
@@ -151,7 +174,7 @@ class AssistantAgent:
                 token_usage=token_usage,
             )
 
-        raise LLMError("Maximum tool-call iterations reached")
+        raise AgentLimitError(trajectory, executions, token_usage)
 
     async def stream(
         self,
@@ -195,14 +218,7 @@ class AssistantAgent:
                         tool_call.function.arguments,
                     )
                     executions.append(execution)
-                    trajectory.append(
-                        AgentStep(
-                            iteration=iteration,
-                            action="tool",
-                            tool_name=execution.name,
-                            success=execution.success,
-                        )
-                    )
+                    trajectory.append(self._build_tool_step(iteration, execution))
                     messages.append(self._build_tool_message(tool_call.id, execution))
                     yield AgentToolEvent(execution=execution)
                 continue
@@ -252,7 +268,14 @@ class AssistantAgent:
             if metadata_completion.parsed is None:
                 raise LLMError("Model did not return structured stream metadata")
 
-            trajectory.append(AgentStep(iteration=iteration, action="answer"))
+            trajectory.append(
+                AgentStep(
+                    iteration=iteration,
+                    action="answer",
+                    decision="Evidence gathering is complete; stream the final answer.",
+                    termination_reason="success",
+                )
+            )
             yield AgentCompleteEvent(
                 answer=answer,
                 metadata=metadata_completion.parsed,
@@ -265,7 +288,25 @@ class AssistantAgent:
             )
             return
 
-        raise LLMError("Maximum tool-call iterations reached")
+        raise AgentLimitError(trajectory, executions, token_usage)
+
+    @staticmethod
+    def _build_tool_step(iteration: int, execution: ToolExecution) -> AgentStep:
+        """Describe one observable tool decision without hidden model reasoning."""
+
+        outcome = "succeeded" if execution.success else "failed"
+        return AgentStep(
+            iteration=iteration,
+            action="tool",
+            tool_name=execution.name,
+            arguments=execution.arguments,
+            result=execution.output,
+            success=execution.success,
+            decision=(
+                f"Requested {execution.name} with the recorded arguments; "
+                f"the observation {outcome}."
+            ),
+        )
 
     @staticmethod
     def _build_stream_final_messages(
