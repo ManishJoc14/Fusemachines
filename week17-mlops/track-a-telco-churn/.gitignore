@@ -6,6 +6,7 @@ __pycache__/
 .mypy_cache/
 
 data/raw/*.csv
+data/processed/*.csv
 artifacts/
 mlruns/
 mlflow.db

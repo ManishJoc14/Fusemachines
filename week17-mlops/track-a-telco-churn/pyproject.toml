@@ -20,6 +20,7 @@ dependencies = [
 prepare-data = "telco_churn.data:main"
 train-models = "telco_churn.training:main"
 serve-model = "telco_churn.api:run"
+monitor-drift = "telco_churn.monitoring:main"
 
 [dependency-groups]
 dev = [
@@ -46,7 +47,7 @@ python_version = "3.12"
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["mlflow.*", "seaborn", "sklearn.*"]
+module = ["evidently.*", "mlflow.*", "seaborn", "sklearn.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
