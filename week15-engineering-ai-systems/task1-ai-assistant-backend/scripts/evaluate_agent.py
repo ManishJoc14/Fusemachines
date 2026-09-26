@@ -3,14 +3,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.assistant.agent import AssistantAgent
+from app.assistant.agent import AgentLimitError, AssistantAgent
 from app.core.config import PROJECT_ROOT, get_settings
 from app.llm.client import LLMClient
 from app.tools.registry import RegisteredTool, ToolRegistry
@@ -43,6 +43,10 @@ class EvaluationCase(BaseModel):
 @dataclass(frozen=True, slots=True)
 class EvaluationResult:
     case_id: str
+    question: str
+    answer: str
+    model: str
+    used_fallback: bool
     completed: bool
     tool_calls_correct: bool
     iterations: int
@@ -52,6 +56,7 @@ class EvaluationResult:
     total_tokens: int
     failure_class: str
     notes: str
+    trajectory: list[dict[str, object]]
 
 
 EVIDENCE: dict[str, dict[str, str]] = {
@@ -131,9 +136,31 @@ async def evaluate_case(
     # Step 1: Run the real agent loop and classify runtime errors as hard failures.
     try:
         result = await agent.run(case.question)
+    except AgentLimitError as exc:
+        return EvaluationResult(
+            case_id=case.id,
+            question=case.question,
+            answer="",
+            model="unknown",
+            used_fallback=False,
+            completed=False,
+            tool_calls_correct=False,
+            iterations=len(exc.trajectory),
+            tool_calls=len(exc.tools_used),
+            prompt_tokens=exc.token_usage.prompt_tokens,
+            completion_tokens=exc.token_usage.completion_tokens,
+            total_tokens=exc.token_usage.total_tokens,
+            failure_class="hard failure",
+            notes=str(exc),
+            trajectory=[asdict(step) for step in exc.trajectory],
+        )
     except Exception as exc:
         return EvaluationResult(
             case_id=case.id,
+            question=case.question,
+            answer="",
+            model="unknown",
+            used_fallback=False,
             completed=False,
             tool_calls_correct=False,
             iterations=0,
@@ -143,6 +170,7 @@ async def evaluate_case(
             total_tokens=0,
             failure_class="hard failure",
             notes=f"{type(exc).__name__}: {exc}",
+            trajectory=[],
         )
 
     # Step 2: Inspect tool names, arguments, failures, and trajectory length.
@@ -194,6 +222,10 @@ async def evaluate_case(
     # Step 5: Return behavior and token metrics for this query.
     return EvaluationResult(
         case_id=case.id,
+        question=case.question,
+        answer=result.output.answer,
+        model=result.model,
+        used_fallback=result.used_fallback,
         completed=completed,
         tool_calls_correct=tool_calls_correct,
         iterations=result.iterations,
@@ -203,6 +235,7 @@ async def evaluate_case(
         total_tokens=result.token_usage.total_tokens,
         failure_class=failure_class,
         notes=notes,
+        trajectory=[asdict(step) for step in result.trajectory],
     )
 
 
