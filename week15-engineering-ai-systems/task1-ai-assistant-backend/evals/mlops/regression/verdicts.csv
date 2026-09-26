@@ -1,0 +1,172 @@
+prompt_version,case_id,question,reference,response,correctness_input,relevance_input,correctness,correctness reasoning,correctness in list {'correct'},relevance,relevance reasoning,relevance in list {'relevant'}
+prompt_v1,confirmed_claim,"Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.",Both independent sources report that the Northbridge flood destroyed 19 motorable bridges. The claim is supported by source_a and source_b.,"Source A confirms the claim: it states the flood destroyed 19 motorable bridges. However, this is a single source, and the claim's wording ('19 bridges') matches source A's figure. If independent verification is required, source B should be consulted, but I have not yet retrieved it. Based on source A alone, the claim is supported, though not independently corroborated.","QUESTION:
+Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.
+
+REFERENCE:
+Both independent sources report that the Northbridge flood destroyed 19 motorable bridges. The claim is supported by source_a and source_b.
+
+RESPONSE:
+Source A confirms the claim: it states the flood destroyed 19 motorable bridges. However, this is a single source, and the claim's wording ('19 bridges') matches source A's figure. If independent verification is required, source B should be consulted, but I have not yet retrieved it. Based on source A alone, the claim is supported, though not independently corroborated.","QUESTION:
+Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.
+
+RESPONSE:
+Source A confirms the claim: it states the flood destroyed 19 motorable bridges. However, this is a single source, and the claim's wording ('19 bridges') matches source A's figure. If independent verification is required, source B should be consulted, but I have not yet retrieved it. Based on source A alone, the claim is supported, though not independently corroborated.",incorrect,"The response states that source A alone supports the claim, but the reference explicitly says both independent sources (source_a and source_b) report the same information. The response fails to acknowledge that source_b has already confirmed the claim, and instead treats source_b as not yet retrieved, contradicting the reference that both sources support the claim. Therefore, it does not preserve the key reference information.",False,relevant,"The response directly addresses the question by evaluating source A's confirmation of the claim, noting the need for independent verification with source B, and clearly stating the current status of verification. It is on-topic and engages with the request to verify the claim.",True
+prompt_v1,conflicting_sources,Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.,"The sources conflict. source_a reports 17 open shelters while source_b reports 19, so the exact number cannot be verified without another reliable source.","Source a reports that 17 emergency shelters remained open after the Northbridge flood, whereas source b reports that 19 shelters remained open. The discrepancy likely reflects differences in reporting times, criteria for what constitutes an open shelter, or updates that occurred after one source was published.","QUESTION:
+Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.
+
+REFERENCE:
+The sources conflict. source_a reports 17 open shelters while source_b reports 19, so the exact number cannot be verified without another reliable source.
+
+RESPONSE:
+Source a reports that 17 emergency shelters remained open after the Northbridge flood, whereas source b reports that 19 shelters remained open. The discrepancy likely reflects differences in reporting times, criteria for what constitutes an open shelter, or updates that occurred after one source was published.","QUESTION:
+Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.
+
+RESPONSE:
+Source a reports that 17 emergency shelters remained open after the Northbridge flood, whereas source b reports that 19 shelters remained open. The discrepancy likely reflects differences in reporting times, criteria for what constitutes an open shelter, or updates that occurred after one source was published.",correct,"The response correctly identifies the conflict between source_a (17) and source_b (19) and does not choose a single number without support. It also explains the discrepancy by suggesting possible reasons such as differences in reporting times or criteria, which aligns with the instruction to explain the conflict rather than resolve it arbitrarily. It preserves the key reference information and does not contradict it.",True,relevant,"The response directly addresses the question by comparing the two sources (source_a and source_b), reporting the conflicting numbers (17 vs 19), and offering a plausible explanation for the discrepancy. It does not choose a number without support, but instead explains the conflict as requested.",True
+prompt_v1,injected_tool_failure,"Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.","The unavailable source failed and provides no evidence. The available education office and local bulletin evidence says schools reopened or resumed gradually from September 12, with the failed source clearly noted as a limitation.",,"QUESTION:
+Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.
+
+REFERENCE:
+The unavailable source failed and provides no evidence. The available education office and local bulletin evidence says schools reopened or resumed gradually from September 12, with the failed source clearly noted as a limitation.
+
+RESPONSE:
+","QUESTION:
+Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.
+
+RESPONSE:
+",incorrect,"The candidate response is empty, providing no information at all. It fails to preserve any of the key reference information (that schools reopened or resumed gradually from September 12, and that the failed source is a limitation). Therefore, it contradicts the requirement to verify and state the evidence, making it incorrect.",False,irrelevant,"The response section is empty. It does not directly address the question about verifying Northbridge schools reopening, nor does it provide any focused clarification or evidence. Therefore, it is off-topic and irrelevant.",False
+prompt_v1,needs_clarification,Can you verify that it increased by 20 percent?,"Please specify what increased by 20 percent, the comparison baseline, and the time period so the claim can be verified.",I don't have the necessary data to verify whether it increased by 20 percent.,"QUESTION:
+Can you verify that it increased by 20 percent?
+
+REFERENCE:
+Please specify what increased by 20 percent, the comparison baseline, and the time period so the claim can be verified.
+
+RESPONSE:
+I don't have the necessary data to verify whether it increased by 20 percent.","QUESTION:
+Can you verify that it increased by 20 percent?
+
+RESPONSE:
+I don't have the necessary data to verify whether it increased by 20 percent.",correct,"The reference asks for more specific information to verify the claim (what increased, baseline, time period). The response states it lacks the necessary data to verify, which aligns with the reference's implication that verification is not possible without additional details. The response does not contradict or misrepresent the reference; it appropriately acknowledges the missing information.",True,relevant,"The response directly addresses the question by stating that it cannot verify the 20 percent increase due to lack of data, which is a direct and relevant reply to the query.",True
+prompt_v2,confirmed_claim,"Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.",Both independent sources report that the Northbridge flood destroyed 19 motorable bridges. The claim is supported by source_a and source_b.,The claim is supported: both source_a and source_b report that the Northbridge flood destroyed 19 bridges.,"QUESTION:
+Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.
+
+REFERENCE:
+Both independent sources report that the Northbridge flood destroyed 19 motorable bridges. The claim is supported by source_a and source_b.
+
+RESPONSE:
+The claim is supported: both source_a and source_b report that the Northbridge flood destroyed 19 bridges.","QUESTION:
+Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.
+
+RESPONSE:
+The claim is supported: both source_a and source_b report that the Northbridge flood destroyed 19 bridges.",correct,"The response accurately reflects the reference statement that both independent sources (source_a and source_b) confirm the Northbridge flood destroyed 19 bridges. It does not omit or contradict any key information from the reference, and it correctly states the claim is supported by both sources.",True,relevant,"The response directly addresses the question by verifying the claim about the Northbridge flood destroying 19 bridges, confirming that both source_a and source_b support this claim. It does not go off-topic or remain empty, and it provides a clear answer to the verification request.",True
+prompt_v2,conflicting_sources,Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.,"The sources conflict. source_a reports 17 open shelters while source_b reports 19, so the exact number cannot be verified without another reliable source.","The two sources give different figures for the number of shelters that remained open after the Northbridge flood. Source A reports that 17 emergency shelters stayed open, while Source B reports that 19 shelters remained open. The discrepancy indicates a conflict between the two reports, and without additional corroborating evidence it is not possible to determine which figure is correct.","QUESTION:
+Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.
+
+REFERENCE:
+The sources conflict. source_a reports 17 open shelters while source_b reports 19, so the exact number cannot be verified without another reliable source.
+
+RESPONSE:
+The two sources give different figures for the number of shelters that remained open after the Northbridge flood. Source A reports that 17 emergency shelters stayed open, while Source B reports that 19 shelters remained open. The discrepancy indicates a conflict between the two reports, and without additional corroborating evidence it is not possible to determine which figure is correct.","QUESTION:
+Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.
+
+RESPONSE:
+The two sources give different figures for the number of shelters that remained open after the Northbridge flood. Source A reports that 17 emergency shelters stayed open, while Source B reports that 19 shelters remained open. The discrepancy indicates a conflict between the two reports, and without additional corroborating evidence it is not possible to determine which figure is correct.",correct,"The response accurately identifies the conflict between the two sources, states the specific numbers (17 and 19) from each source, and concludes that the exact number cannot be verified without additional evidence. It preserves the key information from the reference and does not contradict it.",True,relevant,"The response directly addresses the question by comparing the two sources, identifying the conflict in the reported numbers of shelters (17 vs. 19), and explaining that without additional evidence it is not possible to determine which figure is correct. This fulfills the requirement to compare sources and explain the conflict rather than choosing a number without support.",True
+prompt_v2,injected_tool_failure,"Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.","The unavailable source failed and provides no evidence. The available education office and local bulletin evidence says schools reopened or resumed gradually from September 12, with the failed source clearly noted as a limitation.","Yes, Northbridge schools reopened on September 12.","QUESTION:
+Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.
+
+REFERENCE:
+The unavailable source failed and provides no evidence. The available education office and local bulletin evidence says schools reopened or resumed gradually from September 12, with the failed source clearly noted as a limitation.
+
+RESPONSE:
+Yes, Northbridge schools reopened on September 12.","QUESTION:
+Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.
+
+RESPONSE:
+Yes, Northbridge schools reopened on September 12.",incorrect,"The response claims schools reopened on September 12, but the reference states schools 'reopened or resumed gradually from September 12', meaning reopening was gradual and not necessarily a single event on that exact date. The response omits the gradual nature and also fails to acknowledge the unavailable source limitation, thus it does not preserve key reference information and slightly contradicts it.",False,relevant,"The response directly answers the question by stating that Northbridge schools reopened on September 12. It does not rely on the failed source and provides a clear answer, so it is relevant.",True
+prompt_v2,needs_clarification,Can you verify that it increased by 20 percent?,"Please specify what increased by 20 percent, the comparison baseline, and the time period so the claim can be verified.",I don’t have any evidence to confirm that the figure increased by 20 %.,"QUESTION:
+Can you verify that it increased by 20 percent?
+
+REFERENCE:
+Please specify what increased by 20 percent, the comparison baseline, and the time period so the claim can be verified.
+
+RESPONSE:
+I don’t have any evidence to confirm that the figure increased by 20 %.","QUESTION:
+Can you verify that it increased by 20 percent?
+
+RESPONSE:
+I don’t have any evidence to confirm that the figure increased by 20 %.",correct,"The response does not contradict the reference. The reference asks for specification (what increased, baseline, time period) to verify the claim. The response states lack of evidence to confirm the 20% increase, which aligns with the reference's implication that verification is not possible without those details. It preserves the key information that the claim cannot be confirmed as stated.",True,relevant,"The response directly addresses the question by stating that there is no evidence to confirm the 20% increase, which is a direct and relevant reply to the verification request.",True
+prompt_v3,confirmed_claim,"Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.",Both independent sources report that the Northbridge flood destroyed 19 motorable bridges. The claim is supported by source_a and source_b.,"Source A confirms the claim: it states the flood destroyed **19 motorable bridges**. However, this is a single source, and the claim's precision (exactly 19) warrants independent verification. I will check source B for a second, independent confirmation.","QUESTION:
+Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.
+
+REFERENCE:
+Both independent sources report that the Northbridge flood destroyed 19 motorable bridges. The claim is supported by source_a and source_b.
+
+RESPONSE:
+Source A confirms the claim: it states the flood destroyed **19 motorable bridges**. However, this is a single source, and the claim's precision (exactly 19) warrants independent verification. I will check source B for a second, independent confirmation.","QUESTION:
+Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.
+
+RESPONSE:
+Source A confirms the claim: it states the flood destroyed **19 motorable bridges**. However, this is a single source, and the claim's precision (exactly 19) warrants independent verification. I will check source B for a second, independent confirmation.",correct,"The response accurately acknowledges that source_a confirms the claim about 19 motorable bridges, notes the need for independent verification, and states the intention to check source_b. It does not contradict the reference, which says both sources support the claim. The response is a preliminary step before fully verifying the second source, but it does not incorrectly dispute the claim or misrepresent source_a. Therefore, it is correct.",True,relevant,"The response directly addresses the question by acknowledging the claim about 19 bridges, referencing source A's confirmation, and stating the plan to verify with source B. It is focused on the task and provides a clear assessment, making it relevant.",True
+prompt_v3,conflicting_sources,Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.,"The sources conflict. source_a reports 17 open shelters while source_b reports 19, so the exact number cannot be verified without another reliable source.","The two sources report different numbers of shelters that stayed open after the Northbridge flood. Source A states that **17 emergency shelters remained open**, while Source B reports **19 shelters remained open**. The discrepancy suggests that the two reports may have used different criteria for counting shelters (e.g., including temporary shelters, counting only those fully staffed, or reporting at different times during the relief effort). Without additional corroborating evidence, we cannot definitively resolve which figure is correct.
+
+**Cited sources**: Source A (17 shelters) and Source B (19 shelters).
+
+**Confidence**: medium – the evidence is conflicting.
+
+**Follow‑up questions**:
+1. Could you provide any additional reports or official documents that might clarify the criteria used for counting shelters?
+2. Is there a specific time frame (e.g., 24 hours after the flood) that the question refers to, which might explain the difference?
+3. Would you like me to search for more recent updates or local news articles that could resolve the discrepancy?","QUESTION:
+Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.
+
+REFERENCE:
+The sources conflict. source_a reports 17 open shelters while source_b reports 19, so the exact number cannot be verified without another reliable source.
+
+RESPONSE:
+The two sources report different numbers of shelters that stayed open after the Northbridge flood. Source A states that **17 emergency shelters remained open**, while Source B reports **19 shelters remained open**. The discrepancy suggests that the two reports may have used different criteria for counting shelters (e.g., including temporary shelters, counting only those fully staffed, or reporting at different times during the relief effort). Without additional corroborating evidence, we cannot definitively resolve which figure is correct.
+
+**Cited sources**: Source A (17 shelters) and Source B (19 shelters).
+
+**Confidence**: medium – the evidence is conflicting.
+
+**Follow‑up questions**:
+1. Could you provide any additional reports or official documents that might clarify the criteria used for counting shelters?
+2. Is there a specific time frame (e.g., 24 hours after the flood) that the question refers to, which might explain the difference?
+3. Would you like me to search for more recent updates or local news articles that could resolve the discrepancy?","QUESTION:
+Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.
+
+RESPONSE:
+The two sources report different numbers of shelters that stayed open after the Northbridge flood. Source A states that **17 emergency shelters remained open**, while Source B reports **19 shelters remained open**. The discrepancy suggests that the two reports may have used different criteria for counting shelters (e.g., including temporary shelters, counting only those fully staffed, or reporting at different times during the relief effort). Without additional corroborating evidence, we cannot definitively resolve which figure is correct.
+
+**Cited sources**: Source A (17 shelters) and Source B (19 shelters).
+
+**Confidence**: medium – the evidence is conflicting.
+
+**Follow‑up questions**:
+1. Could you provide any additional reports or official documents that might clarify the criteria used for counting shelters?
+2. Is there a specific time frame (e.g., 24 hours after the flood) that the question refers to, which might explain the difference?
+3. Would you like me to search for more recent updates or local news articles that could resolve the discrepancy?",correct,"The response accurately reflects the conflict between the two sources, preserving the key numbers (17 from source A and 19 from source B) and explicitly states that the exact number cannot be verified without additional evidence. It does not choose a single number as fact, and it even adds plausible explanations for the discrepancy without contradicting the reference. The reference's requirement to 'explain any conflict instead of choosing a number without support' is satisfied.",True,relevant,"The response directly addresses the question by comparing the two sources' reported numbers (17 vs. 19), explains the conflict by suggesting possible differences in counting criteria or timing, and asks focused clarification questions about the criteria and time frame. This is a direct and relevant answer to the question.",True
+prompt_v3,injected_tool_failure,"Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.","The unavailable source failed and provides no evidence. The available education office and local bulletin evidence says schools reopened or resumed gradually from September 12, with the failed source clearly noted as a limitation.","Yes, Northbridge schools reopened on September 12, 2024, with classes resuming gradually that day.","QUESTION:
+Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.
+
+REFERENCE:
+The unavailable source failed and provides no evidence. The available education office and local bulletin evidence says schools reopened or resumed gradually from September 12, with the failed source clearly noted as a limitation.
+
+RESPONSE:
+Yes, Northbridge schools reopened on September 12, 2024, with classes resuming gradually that day.","QUESTION:
+Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.
+
+RESPONSE:
+Yes, Northbridge schools reopened on September 12, 2024, with classes resuming gradually that day.",incorrect,"The reference states that evidence from available sources says schools reopened or resumed gradually from September 12, but also explicitly notes that the unavailable source failed and is a limitation. The response asserts a specific date 'September 12, 2024' and states they 'reopened on September 12' without acknowledging the limitation or that the evidence only supports gradual resumption from that date, not necessarily a full reopening on that exact date. This goes beyond the reference by adding specificity ('2024') and omitting the noted uncertainty, thereby contradicting the reference's cautious tone and limitation.",False,relevant,"The response directly answers the question by stating that Northbridge schools reopened on a specific date, which addresses the user's request to verify reopening. It does not mention the failed source, but the user asked to decide based on evidence from source_a and source_b if unavailable_source fails, and the response provides a clear factual claim without claiming certainty from the failed source. The content is on-topic and directly relevant to the question.",True
+prompt_v3,needs_clarification,Can you verify that it increased by 20 percent?,"Please specify what increased by 20 percent, the comparison baseline, and the time period so the claim can be verified.",Could you clarify what 'it' refers to?,"QUESTION:
+Can you verify that it increased by 20 percent?
+
+REFERENCE:
+Please specify what increased by 20 percent, the comparison baseline, and the time period so the claim can be verified.
+
+RESPONSE:
+Could you clarify what 'it' refers to?","QUESTION:
+Can you verify that it increased by 20 percent?
+
+RESPONSE:
+Could you clarify what 'it' refers to?",correct,"The response asks for clarification of what 'it' refers to, which aligns with the reference's request to specify what increased by 20 percent. It does not contradict the reference, though it is less detailed. The reference also asks for baseline and time period, but the response does not deny or conflict with that; it simply focuses on one of the clarifications needed. Therefore, the response preserves the key idea of seeking specification and does not contradict the reference.",True,relevant,"The response asks a necessary focused clarification about what 'it' refers to, which directly addresses the question by seeking to understand the subject before verifying the percentage increase. This is a relevant attempt to answer the question.",True

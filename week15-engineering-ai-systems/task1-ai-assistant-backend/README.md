@@ -59,7 +59,8 @@ scripts/          # Command-line document ingestion
 
 ## Requirements
 
-- Python 3.11 or 3.12
+- Python 3.12
+- [uv](https://docs.astral.sh/uv/) for locked dependency management
 - PostgreSQL 15 or newer
 - A Hugging Face access token, or a running vLLM endpoint
 - A Qdrant Cloud cluster
@@ -83,20 +84,12 @@ Copy-Item .env.example .env
 ```
 
 Fill in `DATABASE_URL`, `HF_TOKEN`, `QDRANT_URL`, and `QDRANT_API_KEY`. Keep
-`.env` private. Then install the application and apply its database migrations:
+`.env` private. Then reproduce the locked environment and apply migrations:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-alembic upgrade head
-uvicorn app.main:app --reload
-```
-
-PowerShell activation uses:
-
-```powershell
-.venv\Scripts\Activate.ps1
+uv sync --locked
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
 ```
 
 Open the API documentation at <http://localhost:8000/api/docs> and check health at
@@ -256,10 +249,10 @@ Set `LLM_BACKEND=vllm` before using the local profile. The API reaches vLLM at
 ## Quality checks
 
 ```bash
-ruff format --check .
-ruff check .
-mypy app
-pytest
+uv run ruff format --check .
+uv run ruff check .
+uv run mypy app scripts tests
+uv run pytest
 ```
 
 ## Week 16 agentic extension
@@ -343,6 +336,91 @@ as another agent. The main agent owns the goal, chooses each next action, and
 interprets results; Monid only performs one deterministic external API operation
 per call. Treating it as agent-to-agent communication would add unclear autonomy
 and coordination overhead without gaining specialization.
+
+## Week 17 MLOps extension
+
+### Reproducible environment
+
+`pyproject.toml` declares runtime and development dependencies, while `uv.lock`
+pins the complete Python 3.12 environment. Use `uv sync --locked`; do not update
+the lock file merely to run an experiment.
+
+### Prompt experiments and traces
+
+Three prompts are stored as immutable files under
+`app/assistant/prompt_versions/`. `prompt_v1` is the simple baseline. `prompt_v2`
+adds independent-source verification, conflict handling, and failed-tool rules
+after the baseline stopped too early or exhausted its loop. `prompt_v3` adds
+adaptive stopping, focused clarification, and explicit recovery to reduce rigid
+two-source behavior.
+
+Run the same four cases against every version:
+
+```bash
+uv run python -m scripts.run_prompt_experiments
+uv run mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
+```
+
+Each MLflow run stores configuration, prompt hash, aggregate quality/cost
+metrics, and complete JSON traces. A trace records each tool name, validated
+arguments, raw result, observable decision summary, iteration, token usage, and
+termination reason. Representative traces and failure diagnoses are committed
+under [`evals/mlops/runs`](evals/mlops/runs).
+
+| Version | Completion | Tool correctness | Avg iterations | Avg tokens | Total tokens |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `prompt_v1` | 0% | 50% | 2.25 | 1,768 | 7,070 |
+| `prompt_v2` | 75% | 100% | 2.75 | 2,890 | 11,560 |
+| `prompt_v3` | 75% | 75% | 2.50 | 3,024 | 12,097 |
+
+`prompt_v2` is the experiment winner: it matches v3's completion rate, has the
+best tool correctness, and uses fewer tokens. v3 is not promoted because its
+extra instructions cost more while one confirmed-claim run stopped after only
+one source. The baseline also reached the iteration cap during injected failure
+recovery. These measured failures, rather than preference alone, drove each
+prompt change. Provider routes do not expose stable per-request prices, so token
+usage is the cost proxy.
+
+### Evidently LLM regression suite
+
+The fixed golden set in [`golden_responses.json`](evals/mlops/golden_responses.json)
+contains the same four questions and approved reference responses. The current
+dataset is built from the saved candidates for all three prompt versions. An
+Evidently LLM judge performs two binary checks per response:
+
+1. reference-based correctness;
+2. relevance to the question, including a necessary focused clarification.
+
+Run it after the prompt experiment:
+
+```bash
+uv run python -m scripts.run_agent_regression
+```
+
+| Version | Judge checks passed | Promotion decision |
+| --- | ---: | --- |
+| `prompt_v1` | 62% | Block |
+| `prompt_v2` | 88% | Pass |
+| `prompt_v3` | 88% | Pass |
+
+The 75% threshold is logged to each existing MLflow run as
+`pct_tests_passed`. The main remaining regression is overconfident wording after
+an injected source failure: v2 and v3 omit the unavailable-source limitation and
+state gradual reopening too absolutely. The full verdicts, judge explanations,
+HTML report, and JSON report are in
+[`evals/mlops/regression`](evals/mlops/regression). LLM-judge output is treated
+as a review signal, not unquestionable ground truth; the committed verdict table
+keeps the candidate, reference, and reasoning together for human inspection.
+
+### Scope and limitations
+
+- The suite has four controlled cases, so it is a regression gate rather than a
+  broad benchmark.
+- Token counts compare provider usage, but monetary cost is unavailable.
+- External provider behavior can change even with a locked local environment.
+- Airflow orchestration is optional in the assignment and is not included; both
+  bounded evaluation stages are explicit CLI jobs suitable for CI or a future
+  scheduler.
 
 ## API endpoints
 

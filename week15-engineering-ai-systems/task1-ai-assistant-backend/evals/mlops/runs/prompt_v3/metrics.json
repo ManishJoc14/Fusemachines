@@ -1,0 +1,10 @@
+{
+  "task_completion_rate": 0.75,
+  "tool_correctness_rate": 0.75,
+  "average_iterations": 2.5,
+  "average_tool_calls": 1.5,
+  "average_tokens": 3024.25,
+  "total_tokens": 12097.0,
+  "hard_failures": 0.0,
+  "soft_failures": 1.0
+}

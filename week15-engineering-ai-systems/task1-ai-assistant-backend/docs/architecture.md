@@ -65,17 +65,29 @@ When Qdrant Cloud inference is unavailable, retrieval falls back to local dense
 embeddings and cosine search. Expired documents are deleted from PostgreSQL and
 Qdrant by the cleanup service.
 
-## Evaluation path
+## MLOps evaluation and promotion
 
 ```mermaid
-flowchart LR
-  Cases["Controlled evaluation cases"] --> Agent["Real assistant agent and LLM"]
-  Agent --> Fixture["Deterministic evidence tool"]
-  Agent --> Metrics["Completion, tool correctness, iterations, tokens"]
-  Metrics --> Taxonomy["None, hard, soft, or cascading soft failure"]
-  Taxonomy --> Report["evals/results.md"]
+flowchart TD
+  Versions["Prompt v1, v2, v3"] --> Harness["Fixed agent evaluation cases"]
+  Harness --> Loop["Real bounded agent loop"]
+  Loop --> Evidence["Deterministic evidence tool"]
+  Evidence --> Loop
+  Loop --> Traces["Full trajectory JSON"]
+  Traces --> MLflow["MLflow params, metrics, tokens, artifacts"]
+  Traces --> Current["Current candidate responses"]
+  Golden["Approved golden responses"] --> Judge["Evidently LLM judge"]
+  Current --> Judge
+  Judge --> Checks["Correctness and relevance checks"]
+  Checks --> Gate{"At least 75% passed?"}
+  Gate -->|"Yes"| Review["Eligible for human promotion review"]
+  Gate -->|"No"| Block["Block and inspect failed traces"]
+  Checks --> MLflow
 ```
 
-The controlled evidence tool makes trajectories repeatable while still testing
-the actual model-driven planning loop. One source deliberately fails so recovery
-behavior is measured rather than assumed.
+The deterministic evidence tool keeps source behavior repeatable while the real
+model still chooses tools, iterations, recovery, and termination. MLflow compares
+performance and token cost across prompt versions. Evidently evaluates the saved
+answers against one fixed golden set, and the promotion gate blocks versions
+below the declared pass threshold. Human review remains required because the
+evaluator is also an LLM.

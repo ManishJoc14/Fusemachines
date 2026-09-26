@@ -1,0 +1,28 @@
+{
+  "case_id": "needs_clarification",
+  "question": "Can you verify that it increased by 20 percent?",
+  "answer": "I don\u2019t have any evidence to confirm that the figure increased by 20\u202f%.",
+  "model": "openai/gpt-oss-20b:groq",
+  "used_fallback": false,
+  "completed": false,
+  "tool_calls_correct": true,
+  "iterations": 1,
+  "tool_calls": 0,
+  "prompt_tokens": 788,
+  "completion_tokens": 468,
+  "total_tokens": 1256,
+  "failure_class": "soft failure",
+  "notes": "The run completed but missed an expected behavior.",
+  "trajectory": [
+    {
+      "iteration": 1,
+      "action": "answer",
+      "tool_name": null,
+      "arguments": null,
+      "result": null,
+      "success": null,
+      "decision": "Evidence gathering is complete; compose the final answer.",
+      "termination_reason": "success"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+prompt_version,run_id,task_completion_rate,tool_correctness_rate,average_iterations,average_tool_calls,average_tokens,total_tokens,hard_failures,soft_failures
+prompt_v1,b546cfb708ce472f861dcd4b72cbe707,0.0,0.5,2.25,1.5,1767.5,7070.0,1.0,3.0
+prompt_v2,ad74240e17ec41a4898b38069a4ee4ba,0.75,1.0,2.75,1.75,2890.0,11560.0,0.0,1.0
+prompt_v3,d50a9d4cb4de4cdca366a0bf8f756cdf,0.75,0.75,2.5,1.5,3024.25,12097.0,0.0,1.0

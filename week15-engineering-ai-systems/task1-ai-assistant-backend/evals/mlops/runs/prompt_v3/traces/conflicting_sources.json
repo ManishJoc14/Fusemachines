@@ -1,0 +1,54 @@
+{
+  "case_id": "conflicting_sources",
+  "question": "Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.",
+  "answer": "The two sources report different numbers of shelters that stayed open after the Northbridge flood. Source\u202fA states that **17 emergency shelters remained open**, while Source\u202fB reports **19 shelters remained open**. The discrepancy suggests that the two reports may have used different criteria for counting shelters (e.g., including temporary shelters, counting only those fully staffed, or reporting at different times during the relief effort). Without additional corroborating evidence, we cannot definitively resolve which figure is correct.\n\n**Cited sources**: Source\u202fA (17 shelters) and Source\u202fB (19 shelters).\n\n**Confidence**: medium \u2013 the evidence is conflicting.\n\n**Follow\u2011up questions**:\n1. Could you provide any additional reports or official documents that might clarify the criteria used for counting shelters?\n2. Is there a specific time frame (e.g., 24\u202fhours after the flood) that the question refers to, which might explain the difference?\n3. Would you like me to search for more recent updates or local news articles that could resolve the discrepancy?",
+  "model": "openai/gpt-oss-20b:groq",
+  "used_fallback": false,
+  "completed": true,
+  "tool_calls_correct": true,
+  "iterations": 3,
+  "tool_calls": 2,
+  "prompt_tokens": 2767,
+  "completion_tokens": 1030,
+  "total_tokens": 3797,
+  "failure_class": "none",
+  "notes": "Completed expected trajectory.",
+  "trajectory": [
+    {
+      "iteration": 1,
+      "action": "tool",
+      "tool_name": "evidence_search",
+      "arguments": {
+        "query": "Northbridge flood shelters remained open",
+        "source": "source_a"
+      },
+      "result": "{\"source\": \"source_a\", \"status\": \"found\", \"evidence\": \"Municipal bulletin: 17 emergency shelters remained open.\"}",
+      "success": true,
+      "decision": "Requested evidence_search with the recorded arguments; the observation succeeded.",
+      "termination_reason": null
+    },
+    {
+      "iteration": 2,
+      "action": "tool",
+      "tool_name": "evidence_search",
+      "arguments": {
+        "query": "Northbridge flood shelters remained open",
+        "source": "source_b"
+      },
+      "result": "{\"source\": \"source_b\", \"status\": \"found\", \"evidence\": \"Relief agency update: 19 shelters remained open.\"}",
+      "success": true,
+      "decision": "Requested evidence_search with the recorded arguments; the observation succeeded.",
+      "termination_reason": null
+    },
+    {
+      "iteration": 3,
+      "action": "answer",
+      "tool_name": null,
+      "arguments": null,
+      "result": null,
+      "success": null,
+      "decision": "Evidence gathering is complete; compose the final answer.",
+      "termination_reason": "success"
+    }
+  ]
+}

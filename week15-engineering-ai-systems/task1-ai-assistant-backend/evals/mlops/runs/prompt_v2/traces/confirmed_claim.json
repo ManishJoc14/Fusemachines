@@ -1,0 +1,54 @@
+{
+  "case_id": "confirmed_claim",
+  "question": "Verify the claim that the Northbridge flood destroyed 19 bridges. Search source_a first, assess it, and use source_b if another independent source is needed.",
+  "answer": "The claim is supported: both source_a and source_b report that the Northbridge flood destroyed 19 bridges.",
+  "model": "openai/gpt-oss-20b:groq",
+  "used_fallback": false,
+  "completed": true,
+  "tool_calls_correct": true,
+  "iterations": 3,
+  "tool_calls": 2,
+  "prompt_tokens": 2385,
+  "completion_tokens": 580,
+  "total_tokens": 2965,
+  "failure_class": "none",
+  "notes": "Completed expected trajectory.",
+  "trajectory": [
+    {
+      "iteration": 1,
+      "action": "tool",
+      "tool_name": "evidence_search",
+      "arguments": {
+        "query": "Northbridge flood destroyed 19 bridges",
+        "source": "source_a"
+      },
+      "result": "{\"source\": \"source_a\", \"status\": \"found\", \"evidence\": \"Regional report: the flood destroyed 19 motorable bridges.\"}",
+      "success": true,
+      "decision": "Requested evidence_search with the recorded arguments; the observation succeeded.",
+      "termination_reason": null
+    },
+    {
+      "iteration": 2,
+      "action": "tool",
+      "tool_name": "evidence_search",
+      "arguments": {
+        "query": "Northbridge flood destroyed 19 bridges",
+        "source": "source_b"
+      },
+      "result": "{\"source\": \"source_b\", \"status\": \"found\", \"evidence\": \"Engineering survey: inspectors recorded 19 destroyed bridges.\"}",
+      "success": true,
+      "decision": "Requested evidence_search with the recorded arguments; the observation succeeded.",
+      "termination_reason": null
+    },
+    {
+      "iteration": 3,
+      "action": "answer",
+      "tool_name": null,
+      "arguments": null,
+      "result": null,
+      "success": null,
+      "decision": "Evidence gathering is complete; compose the final answer.",
+      "termination_reason": "success"
+    }
+  ]
+}

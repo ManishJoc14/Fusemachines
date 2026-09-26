@@ -1,0 +1,57 @@
+{
+  "case_id": "injected_tool_failure",
+  "question": "Verify whether Northbridge schools reopened. Try unavailable_source first. When it fails, decide whether source_a and source_b provide enough evidence, and do not claim certainty from the failed source.",
+  "answer": "",
+  "model": "unknown",
+  "used_fallback": false,
+  "completed": false,
+  "tool_calls_correct": false,
+  "iterations": 3,
+  "tool_calls": 3,
+  "prompt_tokens": 1434,
+  "completion_tokens": 199,
+  "total_tokens": 1633,
+  "failure_class": "hard failure",
+  "notes": "Maximum tool-call iterations reached",
+  "trajectory": [
+    {
+      "iteration": 1,
+      "action": "tool",
+      "tool_name": "evidence_search",
+      "arguments": {
+        "query": "Northbridge schools reopened",
+        "source": "unavailable_source"
+      },
+      "result": "Tool error: Injected failure: evidence source timed out",
+      "success": false,
+      "decision": "Requested evidence_search with the recorded arguments; the observation failed.",
+      "termination_reason": null
+    },
+    {
+      "iteration": 2,
+      "action": "tool",
+      "tool_name": "evidence_search",
+      "arguments": {
+        "query": "Northbridge schools reopened",
+        "source": "source_a"
+      },
+      "result": "{\"source\": \"source_a\", \"status\": \"found\", \"evidence\": \"Education office: most schools reopened on September 12.\"}",
+      "success": true,
+      "decision": "Requested evidence_search with the recorded arguments; the observation succeeded.",
+      "termination_reason": null
+    },
+    {
+      "iteration": 3,
+      "action": "tool",
+      "tool_name": "evidence_search",
+      "arguments": {
+        "query": "Northbridge schools reopened",
+        "source": "source_b"
+      },
+      "result": "{\"source\": \"source_b\", \"status\": \"found\", \"evidence\": \"Local bulletin: classes resumed gradually from September 12.\"}",
+      "success": true,
+      "decision": "Requested evidence_search with the recorded arguments; the observation succeeded.",
+      "termination_reason": null
+    }
+  ]
+}

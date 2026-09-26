@@ -1,0 +1,54 @@
+{
+  "case_id": "conflicting_sources",
+  "question": "Verify how many shelters remained open after the Northbridge flood. Compare source_a with source_b and explain any conflict instead of choosing a number without support.",
+  "answer": "Source\u202fa reports that 17 emergency shelters remained open after the Northbridge flood, whereas source\u202fb reports that 19 shelters remained open. The discrepancy likely reflects differences in reporting times, criteria for what constitutes an open shelter, or updates that occurred after one source was published.",
+  "model": "openai/gpt-oss-20b:groq",
+  "used_fallback": false,
+  "completed": false,
+  "tool_calls_correct": true,
+  "iterations": 3,
+  "tool_calls": 2,
+  "prompt_tokens": 2145,
+  "completion_tokens": 831,
+  "total_tokens": 2976,
+  "failure_class": "soft failure",
+  "notes": "The run completed but missed an expected behavior.",
+  "trajectory": [
+    {
+      "iteration": 1,
+      "action": "tool",
+      "tool_name": "evidence_search",
+      "arguments": {
+        "query": "Northbridge flood shelters remained open",
+        "source": "source_a"
+      },
+      "result": "{\"source\": \"source_a\", \"status\": \"found\", \"evidence\": \"Municipal bulletin: 17 emergency shelters remained open.\"}",
+      "success": true,
+      "decision": "Requested evidence_search with the recorded arguments; the observation succeeded.",
+      "termination_reason": null
+    },
+    {
+      "iteration": 2,
+      "action": "tool",
+      "tool_name": "evidence_search",
+      "arguments": {
+        "query": "Northbridge flood shelters remained open",
+        "source": "source_b"
+      },
+      "result": "{\"source\": \"source_b\", \"status\": \"found\", \"evidence\": \"Relief agency update: 19 shelters remained open.\"}",
+      "success": true,
+      "decision": "Requested evidence_search with the recorded arguments; the observation succeeded.",
+      "termination_reason": null
+    },
+    {
+      "iteration": 3,
+      "action": "answer",
+      "tool_name": null,
+      "arguments": null,
+      "result": null,
+      "success": null,
+      "decision": "Evidence gathering is complete; compose the final answer.",
+      "termination_reason": "success"
+    }
+  ]
+}
