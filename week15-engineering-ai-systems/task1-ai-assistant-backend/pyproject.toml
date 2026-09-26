@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "engineering-ai-assistant"
 version = "0.1.0"
 description = "A FastAPI AI assistant with RAG, structured output, and tool calling."
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.16,<2.0",
     "asyncpg>=0.30,<1.0",
@@ -27,9 +27,12 @@ dependencies = [
     "uvicorn[standard]>=0.34,<1.0",
 ]
 
-# Development tools are optional so the production image installs only runtime code.
-[project.optional-dependencies]
+# Development and evaluation tools are installed by `uv sync` but are excluded
+# from the production image, which still installs only runtime dependencies.
+[dependency-groups]
 dev = [
+    "evidently[llm]>=0.7.20,<0.8.0",
+    "mlflow>=3.10,<4.0",
     "mypy>=1.14,<2.0",
     "pytest>=8.3,<10.0",
     "pytest-asyncio>=0.25,<2.0",
@@ -67,11 +70,15 @@ show_missing = true
 skip_covered = true
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["sentence_transformers", "sentence_transformers.*"]
 follow_imports = "skip"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["evidently", "evidently.*", "mlflow", "mlflow.*"]
 ignore_missing_imports = true

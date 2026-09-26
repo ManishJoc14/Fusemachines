@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=60.0, gt=0.0)
     llm_max_tool_iterations: int = Field(default=5, ge=1, le=20)
     llm_tool_result_max_characters: int = Field(default=6_000, ge=500, le=20_000)
+    agent_prompt_version: Literal["prompt_v1", "prompt_v2", "prompt_v3"] = (
+        "prompt_v3"
+    )
 
     monid_api_key: SecretStr | None = None
     monid_base_url: AnyHttpUrl = AnyHttpUrl("https://api.monid.ai")

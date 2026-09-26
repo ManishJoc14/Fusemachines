@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+from collections.abc import AsyncIterator
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -64,11 +65,13 @@ class ScriptedLLM:
         self._responses = iter(responses)
         self.calls: list[list[dict[str, Any]]] = []
 
-    async def complete(self, messages: list[dict[str, Any]], **_: Any):
+    async def complete(
+        self, messages: list[dict[str, Any]], **_: Any
+    ) -> LLMCompletion[AssistantOutput]:
         self.calls.append(copy.deepcopy(messages))
         return next(self._responses)
 
-    async def stream_text(self, *_: Any, **__: Any):
+    async def stream_text(self, *_: Any, **__: Any) -> AsyncIterator[LLMTextChunk]:
         yield LLMTextChunk(
             content="Verified answer.",
             model="test-model",
@@ -84,7 +87,9 @@ class ScriptedLLM:
 
 
 class RepeatingToolLLM:
-    async def complete(self, messages: list[dict[str, Any]], **_: Any):
+    async def complete(
+        self, messages: list[dict[str, Any]], **_: Any
+    ) -> LLMCompletion[AssistantOutput]:
         call_number = len(messages)
         return completion(tool_message(f"call-{call_number}", "source-a"))
 
@@ -103,6 +108,7 @@ def build_agent(llm: object, *, max_iterations: int = 4) -> AssistantAgent:
     settings = SimpleNamespace(
         llm_max_tool_iterations=max_iterations,
         llm_tool_result_max_characters=500,
+        agent_prompt_version="prompt_v3",
     )
     return AssistantAgent(cast(Any, llm), registry, cast(Any, settings))
 

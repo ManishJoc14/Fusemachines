@@ -29,7 +29,7 @@ class GoogleTokenVerifier:
         """Verify Google's signature and claims outside the event loop."""
 
         try:
-            transport = requests.Request()  # type: ignore[no-untyped-call]
+            transport = requests.Request()
             claims = await asyncio.to_thread(
                 id_token.verify_oauth2_token,
                 credential,

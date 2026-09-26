@@ -76,6 +76,7 @@ class AssistantAgent:
         self._tools = tool_registry
         self._max_iterations = settings.llm_max_tool_iterations
         self._tool_result_max_characters = settings.llm_tool_result_max_characters
+        self._prompt_version = settings.agent_prompt_version
 
     async def run(
         self,
@@ -301,14 +302,17 @@ class AssistantAgent:
         )
         return final_messages
 
-    @staticmethod
     def _build_messages(
+        self,
         question: str,
         history: list[ChatMessage] | None,
         context: str | None,
     ) -> list[ChatMessageParam]:
         messages: list[ChatMessageParam] = [
-            {"role": "system", "content": build_system_prompt(context)}
+            {
+                "role": "system",
+                "content": build_system_prompt(context, self._prompt_version),
+            }
         ]
         messages.extend(message.model_dump() for message in history or [])
         messages.append({"role": "user", "content": question})
