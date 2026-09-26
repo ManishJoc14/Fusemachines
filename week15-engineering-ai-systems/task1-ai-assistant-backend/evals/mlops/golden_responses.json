@@ -1,0 +1,19 @@
+[
+  {
+    "case_id": "confirmed_claim",
+    "reference_answer": "Both independent sources report that the Northbridge flood destroyed 19 motorable bridges. The claim is supported by source_a and source_b."
+  },
+  {
+    "case_id": "conflicting_sources",
+    "reference_answer": "The sources conflict. source_a reports 17 open shelters while source_b reports 19, so the exact number cannot be verified without another reliable source."
+  },
+  {
+    "case_id": "needs_clarification",
+    "reference_answer": "Please specify what increased by 20 percent, the comparison baseline, and the time period so the claim can be verified."
+  },
+  {
+    "case_id": "injected_tool_failure",
+    "reference_answer": "The unavailable source failed and provides no evidence. The available education office and local bulletin evidence says schools reopened or resumed gradually from September 12, with the failed source clearly noted as a limitation."
+  }
+]
+

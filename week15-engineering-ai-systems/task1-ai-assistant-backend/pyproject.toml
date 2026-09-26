@@ -80,5 +80,6 @@ follow_imports = "skip"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["evidently", "evidently.*", "mlflow", "mlflow.*"]
+module = ["evidently", "evidently.*", "mlflow", "mlflow.*", "pandas", "pandas.*"]
 ignore_missing_imports = true
+follow_imports = "skip"
